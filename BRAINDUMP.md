@@ -1,7 +1,7 @@
 # The Word Registry - Development Braindump
 
 **Last Updated:** 2026-01-26
-**Status:** Phase P0 Complete - Core Backend API Functional
+**Status:** Phase P2 Complete - Full-Stack Application with Stripe Payments
 
 ## Project Overview
 
@@ -15,7 +15,9 @@ The Word Registry is a gamified e-commerce platform where users purchase tempora
 
 ## Current Implementation Status
 
-### ✅ COMPLETED: Phase P0 - Backend Core
+### ✅ COMPLETED PHASES
+
+#### Phase P0 - Backend Core (Complete)
 
 #### Database Setup
 - **PostgreSQL** database `word_registry` created and configured
@@ -35,20 +37,28 @@ backend/
 │   ├── database.py       # SQLAlchemy engine & session management
 │   ├── models.py         # Word & Transaction models
 │   ├── schemas.py        # Pydantic request/response schemas
-│   ├── services.py       # Business logic (steal_word, validation)
+│   ├── services.py       # Business logic (steal_word, add_word, validation)
 │   ├── utils.py          # Helper functions (is_word_available)
+│   ├── cache.py          # Cache initialization & setup
+│   ├── ratelimit.py      # Rate limiter setup (slowapi)
+│   ├── rate_config.py    # Centralized rate limit configuration
+│   ├── ml_models.py      # ML model loading (detoxify)
 │   └── routes/
 │       ├── __init__.py
 │       ├── words.py      # Word search/get/random endpoints
-│       ├── purchase.py   # Purchase endpoint (steal_word)
-│       └── leaderboard.py # Leaderboards & stats
+│       ├── purchase.py   # Purchase/add word endpoints
+│       ├── leaderboard.py # Leaderboards & stats
+│       └── payment.py    # Stripe payment integration
 ├── init_db.py            # Database schema initialization
 ├── import_words.py       # Word data import script
 ├── verify_import.py      # Quick DB verification script
 ├── create_database.py    # Alternative DB creation (if psql not available)
+├── warmup_ml.py          # ML model warmup script
+├── test_ratelimits.py    # Rate limit testing script
 ├── requirements.txt      # Python dependencies
-├── .env                  # Environment config (DATABASE_URL, etc.)
+├── .env                  # Environment config (DATABASE_URL, STRIPE_SECRET_KEY, etc.)
 ├── .env.example          # Template for .env
+├── RATE_LIMIT_TESTING.md # Rate limit documentation
 └── README.md
 ```
 
@@ -89,42 +99,143 @@ Located in `app/services.py`, this is the heart of the purchase mechanic:
 5. **Transaction record:** Immutable log entry created
 6. **Atomic commit:** All changes happen in single DB transaction
 
-#### Content Validation
+#### Content Validation & Safety
 
 `WordService.validate_content()` blocks:
 - URLs and web links (http://, www., .com, etc.)
 - Email addresses
 - Social media handles (@username)
 - Phone numbers
-- Basic profanity (extend list as needed)
+- Profanity (better-profanity library)
+- Toxic/hateful content (detoxify ML model)
 
-### 🔄 IN PROGRESS: None (Phase P0 Complete)
+**Toxicity Detection:**
+- `detoxify` library with transformers model (~400MB)
+- Thresholds: 0.7 for words, 0.8 for messages
+- Checks: toxicity, severe_toxicity, obscene, threat, insult, identity_attack
+- Warmup script: `backend/warmup_ml.py`
+
+#### Phase P1 - Frontend (Complete)
+
+**Next.js 15.5.9 Setup:**
+```
+frontend/
+├── app/
+│   ├── layout.tsx         # Root layout with Header
+│   ├── page.tsx           # Landing page
+│   └── word/
+│       └── [word]/
+│           └── page.tsx   # Dynamic word detail page
+├── components/
+│   ├── Header.tsx         # Navigation header
+│   ├── CookieBanner.tsx   # GDPR/CCPA cookie consent
+│   ├── PurchaseModal.tsx  # Demo purchase modal (pre-Stripe)
+│   ├── PurchaseModalWithPayment.tsx  # Stripe payment modal
+│   └── PaymentForm.tsx    # Stripe Elements payment form
+├── lib/
+│   └── api.ts             # Centralized API client
+└── package.json           # Dependencies
+```
+
+**Features Implemented:**
+- ✅ Landing page with search functionality
+- ✅ Random word button
+- ✅ Leaderboards (expensive & recent words with messages)
+- ✅ Word detail pages with live countdown timers
+- ✅ Transaction history display
+- ✅ Cookie consent banner
+- ✅ Mandatory ownership acknowledgment checkbox
+- ✅ Content validation on frontend (matches backend)
+- ✅ Responsive design with Tailwind CSS
+
+**Word Creation Feature ($50):**
+- ✅ `POST /api/purchase/add/{word}` endpoint
+- ✅ WordService.add_word() method
+- ✅ Frontend UI to add new words not in registry
+- ✅ Fixed price: $50 = 50 hours lockout
+- ✅ Word validation: English only (ASCII), no emojis/foreign chars
+
+#### Phase P2 - Stripe Integration (Complete)
+
+**Backend Payment Routes:**
+```
+backend/app/routes/payment.py:
+- POST /api/payment/create-intent     # Creates PaymentIntent
+- POST /api/payment/confirm-purchase  # Confirms purchase after payment
+- POST /api/payment/webhook           # Handles Stripe webhooks
+```
+
+**Frontend Payment Flow:**
+1. User enters name and message
+2. Acknowledges temporary ownership
+3. Click "Continue to Payment"
+4. Backend creates PaymentIntent
+5. Stripe Payment Element loads with card form
+6. User enters payment details
+7. Stripe processes payment (supports 3D Secure)
+8. Frontend confirms purchase with backend
+9. Word ownership transferred
+
+**Features:**
+- ✅ Embedded payment form (no redirects)
+- ✅ Test mode support on localhost
+- ✅ Multiple payment methods (cards, Apple Pay, Google Pay)
+- ✅ 3D Secure authentication built-in
+- ✅ Webhook handling for payment notifications
+- ✅ Graceful handling of payment_intent_unexpected_state errors
+- ✅ Double-click prevention
+- ✅ Comprehensive error handling
+
+**Test Cards:**
+- Success: `4242 4242 4242 4242`
+- 3D Secure: `4000 0025 0000 3155`
+- Declined: `4000 0000 0000 0002`
+
+**Documentation:** See `STRIPE_INTEGRATION.md` for complete setup guide
+
+#### Phase P3 - Rate Limiting & Caching (Complete)
+
+**Rate Limiting (slowapi):**
+- Centralized configuration in `app/rate_config.py`
+- Limits per endpoint:
+  - Purchase word: 5/minute
+  - Add word: 5/hour
+  - Word search: 60/minute
+  - Word detail: 100/minute
+  - Random word: 100/minute
+  - Leaderboard: 30/minute
+  - Default: 200/hour
+
+**Caching (fastapi-cache2):**
+- In-memory backend (Redis-ready for production)
+- Cached endpoints:
+  - Leaderboards (5 minute TTL)
+  - Platform stats (5 minute TTL)
+- Cache decorator: `@cache(expire=300)`
+
+**Testing:**
+- Test script: `backend/test_ratelimits.py`
+- Color-coded output (green=pass, yellow=rate-limited, red=error)
+- Handles business logic errors (400) vs rate limits (429)
+
+### 🔄 IN PROGRESS: None
 
 ### ❌ NOT YET IMPLEMENTED
 
-#### Phase P1 (Next Priority - Frontend)
-- [ ] Next.js frontend setup
-- [ ] Landing page with search + random word generator
-- [ ] Word detail page showing ownership, timer, history
-- [ ] Checkout flow UI
-- [ ] Cookie consent banner (GDPR/CCPA)
-- [ ] Mandatory acknowledgment checkbox
-
-#### Phase P2 (Medium Priority)
-- [ ] Stripe payment integration
-  - Checkout Sessions API
-  - Dynamic statement descriptors (WR* WORD)
-  - Webhook handling for payment confirmation
+#### Future Enhancements
 - [ ] UCP/Agentic layer (AI plugin manifest)
 - [ ] Google Merchant Center feed generation
 
-#### Future Enhancements
-- [ ] Full 480k word dictionary import
-- [ ] Advanced profanity filter (better-profanity library)
-- [ ] Rate limiting & DDoS protection
-- [ ] Caching layer (Redis) for leaderboards
+#### Future Enhancements (Deferred)
+- [ ] Full 480k word dictionary import (currently 20k)
+- [ ] Production Redis deployment (currently in-memory)
 - [ ] WebSocket support for live updates
-- [ ] Admin dashboard
+- [ ] Admin dashboard for moderation
+- [ ] Email notifications for outbid users
+- [ ] Receipt emails (Stripe automatic receipts)
+- [ ] Refund handling
+- [ ] Dispute management
+- [ ] Failed payment retry logic
 
 ## Technical Details
 
@@ -140,20 +251,41 @@ venv\Scripts\activate  # Windows
 pip install -r requirements.txt
 ```
 
-**Database Configuration:**
+**Backend Configuration:**
 Edit `backend/.env`:
 ```
 DATABASE_URL=postgresql://postgres:password@localhost:5432/word_registry
+STRIPE_SECRET_KEY=sk_test_...
+STRIPE_PUBLISHABLE_KEY=pk_test_...
+STRIPE_WEBHOOK_SECRET=  # Optional for local testing
+REDIS_URL=redis://localhost:6379  # Optional
+RATE_LIMIT_ENABLED=True
 ```
 
-**Running the Server:**
+**Frontend Configuration:**
+Create `frontend/.env.local`:
+```
+NEXT_PUBLIC_API_URL=http://localhost:8000
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_...
+```
+
+**Running the Backend:**
 ```bash
 cd backend
 venv\Scripts\activate
 uvicorn app.main:app --reload --port 8000
 ```
 
-API Docs: http://localhost:8000/docs
+**Running the Frontend:**
+```bash
+cd frontend
+npm run dev
+```
+
+**Access Points:**
+- Frontend: http://localhost:3000
+- Backend API: http://localhost:8000
+- API Docs: http://localhost:8000/docs
 
 ### Database Schema
 
@@ -230,47 +362,80 @@ GET http://localhost:8000/api/leaderboard/recent
 
 ## Known Issues / Notes
 
-- Content validation is basic - consider using `better-profanity` library for production
 - CORS is currently wide open (`allow_origins=["*"]`) - tighten for production
-- No rate limiting yet - vulnerable to spam
-- Stripe integration not implemented - purchase endpoint works without payment
+- Rate limiting uses in-memory storage - deploy Redis for production clustering
+- Caching uses in-memory backend - deploy Redis for production clustering
+- detoxify model (~400MB) loads on first request - consider preloading on startup
 - No email notifications for outbid users
 - No admin interface for moderation
+- Only 20k words imported (can scale to 480k)
+- Test mode only for Stripe - need live keys for production
 
 ## Next Steps
 
-1. **Set up Next.js frontend** in `/frontend` directory
-2. **Build landing page** with:
-   - Search bar
-   - Random word button
-   - Top 10 leaderboards (expensive & recent)
-3. **Build word detail page** at `/word/[word]`:
-   - Current ownership & message
-   - Live countdown timer
-   - Purchase button with price
-   - Transaction history
-4. **Integrate Stripe** for actual payments
-5. **Deploy to production** (Vercel + Railway/Render)
+1. **Production Deployment:**
+   - Frontend: Deploy to Vercel
+   - Backend: Deploy to Railway/Render/Fly.io
+   - Database: Managed PostgreSQL (Railway/Render/Supabase)
+   - Redis: Deploy for rate limiting & caching
+   - Switch Stripe to live mode with live API keys
+
+2. **Production Readiness:**
+   - Tighten CORS to specific frontend domain
+   - Configure Stripe webhook endpoint
+   - Set up domain & SSL certificates
+   - Configure environment variables in hosting platform
+
+3. **Optional Enhancements:**
+   - Import remaining 460k words
+   - Build admin dashboard
+   - Add email notifications
+   - Implement UCP/AI plugin manifest
+   - Google Merchant Center feed
 
 ## Reference Documents
 
 - Full PRD: `prd.txt` (in project root)
 - Word data: `words-raw/20k.txt` (20,000 words)
 - API Docs: http://localhost:8000/docs (when server running)
+- Stripe Setup: `STRIPE_INTEGRATION.md`
+- Rate Limiting: `backend/RATE_LIMIT_TESTING.md`
 
 ## Quick Restart Checklist
 
 If resuming this project:
+
+**Backend:**
 1. ✅ PostgreSQL installed and running
 2. ✅ Database `word_registry` exists
 3. ✅ Python 3.13 installed
 4. ✅ Virtual environment at `backend/venv`
 5. ✅ Dependencies installed via `requirements.txt`
-6. ✅ `.env` file configured with DATABASE_URL
+6. ✅ `backend/.env` configured with DATABASE_URL and STRIPE_SECRET_KEY
 7. ✅ 20,000 words imported
-8. Start server: `uvicorn app.main:app --reload --port 8000`
-9. Test at http://localhost:8000/docs
+8. Start backend: `cd backend && venv\Scripts\activate && uvicorn app.main:app --reload`
+
+**Frontend:**
+1. ✅ Node.js installed
+2. ✅ Dependencies installed via `npm install`
+3. ✅ `frontend/.env.local` configured with NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+4. Start frontend: `cd frontend && npm run dev`
+
+**Test:**
+- Frontend: http://localhost:3000
+- Backend API: http://localhost:8000/docs
+- Test payment with card: `4242 4242 4242 4242`
 
 ---
 
-**Continuation Point:** Backend API is fully functional. Next session should focus on Phase P1 (Frontend).
+## Git Commits
+
+1. `a312cad` - Initial implementation of Phase P0: Core Backend API
+2. `929ed3b` - Phase P1: Complete frontend + word creation + toxicity detection
+3. `730816d` - Add frontend API client library
+4. `1dc77c3` - Add rate limiting and caching (hybrid in-memory/Redis solution)
+5. `d33d0a8` - Add Stripe Payment Element integration for secure payment processing
+
+---
+
+**Continuation Point:** Full-stack application complete with Stripe payments working on localhost. Ready for production deployment or additional features.
