@@ -1,7 +1,7 @@
 # The Word Registry - Development Braindump
 
 **Last Updated:** 2026-01-26
-**Status:** Phase P2 Complete - Full-Stack Application with Stripe Payments
+**Status:** Phase P4 Complete - Production-Ready with Admin Panel
 
 ## Project Overview
 
@@ -196,6 +196,8 @@ backend/app/routes/payment.py:
 #### Phase P3 - Rate Limiting & Caching (Complete)
 
 **Rate Limiting (slowapi):**
+
+**Rate Limiting (slowapi):**
 - Centralized configuration in `app/rate_config.py`
 - Limits per endpoint:
   - Purchase word: 5/minute
@@ -217,6 +219,60 @@ backend/app/routes/payment.py:
 - Test script: `backend/test_ratelimits.py`
 - Color-coded output (green=pass, yellow=rate-limited, red=error)
 - Handles business logic errors (400) vs rate limits (429)
+
+#### Phase P4 - Admin Panel (Complete)
+
+**Authentication:**
+- TOTP (Time-based One-Time Password) with Google Authenticator
+- 6-digit codes that refresh every 30 seconds
+- No username/password - just TOTP codes
+- X-Admin-Token header required for all admin requests
+- Rate limiting: 10 login attempts per minute
+
+**Dashboard Features:**
+- **Income Statistics:** Total, today, this week (excludes admin actions)
+- **Popular Words:** Most viewed words in last 30 days
+- **Error Logs:** Recent application errors with stack traces
+- **Word Management:** Reset word price and ownership
+
+**Admin Actions:**
+- Marked as `is_admin_action=true` in transactions
+- Don't count towards revenue statistics
+- Don't appear in public transaction history
+- Used for moderation and corrections
+
+**Analytics:**
+- Word view tracking (powers popularity metrics)
+- Error logging with stack traces, endpoints, IP addresses
+- Income tracking separated from admin actions
+
+**Database Tables:**
+- `transactions.is_admin_action`: Boolean flag (default false)
+- `error_logs`: Error tracking and monitoring
+- `word_views`: Word page view analytics
+
+**Frontend Pages:**
+- `/admin/login`: TOTP code entry
+- `/admin/dashboard`: Comprehensive admin dashboard
+
+**API Endpoints:**
+- POST `/api/admin/login`: Verify TOTP code
+- GET `/api/admin/setup`: Get QR code for initial setup
+- GET `/api/admin/dashboard`: Full dashboard data
+- GET `/api/admin/income`: Income statistics
+- GET `/api/admin/popular-words`: Most viewed words
+- GET `/api/admin/errors`: Recent error logs
+- POST `/api/admin/reset-word`: Reset word price/ownership
+
+**Setup:**
+1. Generate TOTP secret: `python -c "import pyotp; print(pyotp.random_base32())"`
+2. Add to `.env`: `ADMIN_TOTP_SECRET=your_secret_here`
+3. Run migration: `python migrate_admin_tables.py`
+4. Visit `/api/admin/setup` for QR code
+5. Scan with Google Authenticator
+6. Access `/admin/login` with 6-digit code
+
+**Documentation:** See `ADMIN_GUIDE.md` for complete setup guide
 
 ### 🔄 IN PROGRESS: None
 
@@ -435,7 +491,15 @@ If resuming this project:
 3. `730816d` - Add frontend API client library
 4. `1dc77c3` - Add rate limiting and caching (hybrid in-memory/Redis solution)
 5. `d33d0a8` - Add Stripe Payment Element integration for secure payment processing
+6. `efa5819` - Update BRAINDUMP.md to reflect completed phases P0-P2
+7. `9e28ff3` - Add DigitalOcean droplet deployment infrastructure
+8. `459df6a` - Add secure admin panel with TOTP authentication
 
 ---
 
-**Continuation Point:** Full-stack application complete with Stripe payments working on localhost. Ready for production deployment or additional features.
+**Continuation Point:** Production-ready full-stack application with:
+- Secure payment processing (Stripe)
+- Zero-downtime deployment setup
+- Admin panel with TOTP authentication
+- Analytics and error monitoring
+- Ready for production deployment to DigitalOcean
