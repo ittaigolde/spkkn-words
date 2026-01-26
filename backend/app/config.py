@@ -23,6 +23,9 @@ class Settings(BaseSettings):
     # Rate Limiting
     rate_limit_enabled: bool = True
 
+    # CORS (comma-separated list of allowed origins)
+    cors_origins: str = "*"  # Use "*" for dev, "https://yourdomain.com" for production
+
     class Config:
         env_file = ".env"
         case_sensitive = False

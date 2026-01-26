@@ -41,9 +41,11 @@ app.include_router(leaderboard.router)
 app.include_router(payment.router)
 
 # CORS middleware
+# Parse comma-separated origins from settings
+cors_origins = settings.cors_origins.split(",") if settings.cors_origins else ["*"]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Configure appropriately for production
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
