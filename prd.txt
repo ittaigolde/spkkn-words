@@ -1,0 +1,180 @@
+Product Requirements Document (PRD): The Word Registry
+Version: 3.0 (Final Web Specification)
+Status: Approved for Development
+Platform: Web (Mobile Responsive) + API (Headless)
+Core Concept: A competitive marketplace for exclusive, temporary ownership of
+English words.
+
+1. EXECUTIVE SUMMARY
+
+The Word Registry is a gamified e-commerce platform where users purchase
+"ownership" of English words. It operates on a "Steal & Shield" economy:
+ownership is never permanent; it is protected only for a duration proportional
+to the purchase price.
+
+The platform serves two distinct user bases:
+
+1. Humans: Via a high-end, minimalist web interface.
+2. AI Agents: Via the Universal Commerce Protocol (UCP), allowing autonomous
+bots to discover, value, and purchase words without human intervention.
+3. CORE GAME MECHANICS (THE "PHYSICS")
+
+2.1 The Economy (Uncapped Volatility)
+
+* Inventory Source: Approximately 480,000 words imported from open-source
+  dictionaries (e.g., dwyl/english-words).
+* Base Price: All unsold words start at $1.00.
+* The Price Escalator: Every valid sale increases the price of that specific
+  word by exactly $1.00 for the next buyer.
+* Mechanism: Price can rise infinitely. There is no hard cap.
+* Revenue: The platform retains 100% of all transaction volume.
+
+2.2 The Lockout (The "Shield")
+
+* Concept: Purchasing a word grants a temporary "Shield" during which it
+  cannot be bought by others.
+* Formula: 1 Hour of Protection per $1.00 Spent.
+* Spend $1.00 = Safe for 1 Hour.
+* Spend $24.00 = Safe for 24 Hours.
+* Spend $100.00 = Safe for 4 Days, 4 Hours.
+
+
+* Expiry: Once the timer hits 00:00:00, the status reverts to AVAILABLE, but
+  the price remains at the high water mark.
+
+2.3 The Asset (What is Owned)
+In exchange for the fee, the owner receives:
+
+1. Digital Billboard: Their Name and Custom Message displayed on the word's
+permanent URL (e.g.,
+[registry.com/word/serendipity](https://www.google.com/search?q=https://registry.com/word/serendipity)).
+2. Bank Statement Brag: The credit card statement descriptor dynamically reads
+"WR* [WORD]" (e.g., WR* LOVE).
+3. History Log: Permanent entry in the "Previous Owners" ledger on the page.
+4. USER EXPERIENCE (HUMAN)
+
+3.1 Search & Discovery
+
+* Landing Page: Minimalist design featuring a "Random Word" generator (only
+  pulls available $1.00 words) and a search bar.
+* Live Ticker (The Top 10): A real-time leaderboard showing "Most Searched"
+  and "Most Expensive" words.
+* Visual Status:
+* Available: Green "Claim This Word" button.
+* Locked: Gold "Secured by [Name]" badge with a live Countdown Timer.
+
+
+
+3.2 The Checkout Flow (Compliance-Focused)
+
+1. Initiation: User clicks "Claim for $[X]".
+2. Input: User enters Owner Name and Message (Max 140 characters).
+3. Sanitation Check: System validates text against blocklists (see Section 5).
+4. Mandatory Acknowledgement:
+* UI: An unchecked box required to proceed.
+* Text: "I acknowledge that I am purchasing temporary ownership. My rights to
+  this word expire in [X] hours, after which it may be purchased by another
+user."
+
+
+5. Payment: Redirect to Stripe Checkout.
+6. Success: User is returned to the Word Page, which instantly updates with
+confetti and the new owner details.
+7. AGENTIC EXPERIENCE (AI / UCP)
+
+4.1 Capabilities Manifest
+The site must host a /.well-known/ai-plugin.json file declaring:
+
+* Identity: "The Word Registry - A marketplace for unique string ownership."
+* Capabilities: Search, Check Availability, Purchase.
+
+4.2 API Endpoints
+
+* GET /api/ucp/products?q={word}
+Returns structured JSON with:
+* price: Current float value.
+* status: "LOCKED" or "AVAILABLE".
+* lockout_ends: ISO timestamp (if locked).
+
+
+* POST /api/ucp/checkout
+Accepts payment token and owner metadata; returns transaction hash.
+
+5. CONTENT MODERATION & SAFETY
+
+5.1 The Inventory (The Words)
+
+* Policy: Unrestricted.
+* Detail: The platform sells the entire English dictionary, including
+  profanity, slang, and controversial terms. We do not censor the product.
+
+5.2 User-Generated Content (The Messages)
+
+* Policy: Strict Family-Friendly.
+* Prohibited Content:
+1. Hate Speech/Profanity: Zero tolerance.
+2. External Links: No URLs (.com, http), handles (@user), or IP addresses.
+3. PII: No email addresses or phone numbers.
+
+
+* Enforcement: Pre-purchase validation logic. If the regex detects a link or
+  profanity, the "Pay" button remains disabled with an error message.
+
+6. TECHNICAL ARCHITECTURE
+
+6.1 Stack
+
+* Backend: Python (FastAPI). Best for UCP JSON handling and fast async logic.
+* Database: PostgreSQL. Required for ACID transactions (preventing race
+  conditions on popular words).
+* Frontend: Next.js (React). Server-Side Rendering (SSR) is critical for SEO
+  so individual word pages get indexed.
+* Payments: Stripe (Checkout Sessions).
+
+6.2 Data Model (Key Schemas)
+
+* Word Table: text (Indexed), price, owner_name, owner_message,
+  lockout_ends_at.
+* Transaction Table: word_id, buyer_name, price_paid, timestamp. (Immutable
+  log for history).
+
+7. COMPLIANCE, LEGAL & MARKETING
+
+7.1 Google Merchant Center (GMC) Strategy
+
+* Feed Logic: The XML feed sent to Google Shopping will ONLY contain words
+  priced at $1.00 (Base Price).
+* Pruning: As soon as a word is sold (Price > $1.00), it is automatically
+  removed from the Google Feed to prevent "Price Mismatch" suspensions.
+
+7.2 Cookie Consent (GDPR/CCPA)
+
+* Implementation: A banner on first load.
+* Copy: "We use cookies to manage your cart and analyze site traffic."
+* Options: [Accept Necessary] / [Accept All].
+
+7.3 Legal Disclaimer
+
+* Footer Text: "Ownership is a digital novelty service for entertainment
+  purposes only. Purchase does not convey legal trademark rights, copyright,
+or exclusivity over the English language outside of this platform."
+
+8. DEVELOPMENT ROADMAP
+
+Phase P0 (Critical):
+
+* Database & Import: Setup Postgres; Script to ingest 480k words.
+* Core Logic API: function steal_word() handling Price +$1 and Lockout
+  calculations.
+* Payment Integration: Stripe Checkout with Dynamic Statement Descriptors (WR*
+  WORD).
+
+Phase P1 (High Priority):
+
+* Frontend (Human): Next.js pages for Home, Word Detail, and Leaderboard.
+* Compliance: Cookie Banner + Mandatory Checkout Checkbox.
+
+Phase P2 (Medium Priority):
+
+* Agentic Layer: UCP Manifest and JSON-LD structured data.
+* GMC Feed: XML generation script for the "Available $1.00" subset.
