@@ -12,6 +12,9 @@ from ..database import get_db
 from ..admin_auth import verify_admin_token, get_setup_info
 from ..admin_service import AdminService
 from ..ratelimit import limiter
+from ..config import get_settings
+
+settings = get_settings()
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
@@ -65,12 +68,19 @@ async def admin_setup(request: Request):
     """
     Get TOTP setup information (QR code for first-time setup).
 
-    IMPORTANT: This endpoint should be disabled in production or require
-    a separate setup token. It's only for initial configuration.
+    IMPORTANT: This endpoint is automatically disabled when ADMIN_SETUP_ENABLED=False
+    Set this to False in production after initial setup.
 
     Returns:
         QR code and setup instructions
     """
+    # Check if setup endpoint is enabled
+    if not settings.admin_setup_enabled:
+        raise HTTPException(
+            status_code=403,
+            detail="Admin setup endpoint is disabled. Set ADMIN_SETUP_ENABLED=True to enable."
+        )
+
     try:
         setup_info = get_setup_info()
         return setup_info

@@ -19,7 +19,14 @@ export default function AdminSetupPage() {
       setSetupInfo(info);
       setError(null);
     } catch (err: any) {
-      setError(err.message || "Failed to load setup information");
+      const errorMessage = err.message || "Failed to load setup information";
+
+      // Check if setup is disabled
+      if (errorMessage.includes("disabled") || errorMessage.includes("403")) {
+        setError("SETUP_DISABLED");
+      } else {
+        setError(errorMessage);
+      }
     } finally {
       setLoading(false);
     }
@@ -43,6 +50,56 @@ export default function AdminSetupPage() {
   }
 
   if (error) {
+    // Special message for disabled setup
+    if (error === "SETUP_DISABLED") {
+      return (
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+          <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-6">
+            <div className="flex items-center justify-center w-12 h-12 bg-yellow-100 rounded-full mx-auto mb-4">
+              <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              </svg>
+            </div>
+            <h2 className="text-xl font-bold text-center text-gray-900 mb-2">Setup Disabled</h2>
+            <p className="text-gray-700 text-center mb-4">
+              The admin setup page has been disabled for security. This is normal in production.
+            </p>
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+              <p className="text-sm text-blue-800 mb-2">
+                <strong>Already set up?</strong>
+              </p>
+              <p className="text-sm text-blue-800">
+                Use your Google Authenticator app to log in at the admin login page.
+              </p>
+            </div>
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4">
+              <p className="text-sm text-gray-700 mb-2">
+                <strong>Need to re-enable setup?</strong>
+              </p>
+              <p className="text-sm text-gray-700">
+                Set <code className="bg-gray-200 px-1 py-0.5 rounded">ADMIN_SETUP_ENABLED=True</code> in your backend .env file
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => window.location.href = "/admin/login"}
+                className="flex-1 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                Go to Login
+              </button>
+              <button
+                onClick={() => window.location.href = "/"}
+                className="flex-1 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+              >
+                Go to Home
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // Regular error message
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-6">

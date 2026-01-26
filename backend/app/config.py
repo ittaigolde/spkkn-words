@@ -29,6 +29,9 @@ class Settings(BaseSettings):
     # Admin TOTP Secret (generate with: python -c "import pyotp; print(pyotp.random_base32())")
     admin_totp_secret: str = ""
 
+    # Admin setup page enabled (set to False in production)
+    admin_setup_enabled: bool = True
+
     class Config:
         env_file = ".env"
         case_sensitive = False
