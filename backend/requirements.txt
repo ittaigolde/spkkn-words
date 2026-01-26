@@ -6,3 +6,5 @@ python-dotenv==1.0.1
 pydantic==2.10.0
 pydantic-settings==2.6.1
 stripe==11.1.0
+detoxify==0.5.2
+better-profanity==0.7.0
