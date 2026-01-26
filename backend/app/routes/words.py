@@ -148,9 +148,18 @@ async def get_word(
     if not word:
         raise HTTPException(status_code=404, detail="Word not found")
 
-    # Get transaction history
+    # Log word view for analytics (async, don't wait)
+    try:
+        from ..admin_service import AdminService
+        ip_address = request.client.host if request.client else None
+        AdminService.log_word_view(db, word.id, ip_address)
+    except Exception:
+        pass  # Don't fail request if view logging fails
+
+    # Get transaction history (exclude admin actions from public view)
     transactions = db.query(Transaction).filter(
-        Transaction.word_id == word.id
+        Transaction.word_id == word.id,
+        Transaction.is_admin_action == False  # Only show real purchases
     ).order_by(Transaction.timestamp.desc()).all()
 
     transaction_responses = [

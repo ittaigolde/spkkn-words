@@ -12,3 +12,6 @@ slowapi==0.1.9
 fastapi-cache2[inmemory]==0.2.2
 redis==5.2.0
 requests==2.32.3
+pyotp==2.9.0
+qrcode==7.4.2
+pillow==10.4.0

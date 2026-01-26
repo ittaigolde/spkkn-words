@@ -26,6 +26,9 @@ class Settings(BaseSettings):
     # CORS (comma-separated list of allowed origins)
     cors_origins: str = "*"  # Use "*" for dev, "https://yourdomain.com" for production
 
+    # Admin TOTP Secret (generate with: python -c "import pyotp; print(pyotp.random_base32())")
+    admin_totp_secret: str = ""
+
     class Config:
         env_file = ".env"
         case_sensitive = False
