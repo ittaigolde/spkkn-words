@@ -91,33 +91,37 @@ This adds:
 
 ### 5. Get QR Code
 
-Start your backend server, then visit:
+**Easiest Method:** Visit the visual setup page:
+
+```
+http://localhost:3000/admin/setup
+```
+
+This page displays:
+- QR code ready to scan
+- Step-by-step instructions
+- Manual entry option with copy button
+- Security checklist
+
+**Alternative (API only):** If you need the raw data:
 
 ```
 http://localhost:8000/api/admin/setup
 ```
 
-This will return JSON with a base64-encoded QR code image:
+This returns JSON with a base64-encoded QR code.
 
-```json
-{
-  "secret": "JBSWY3DPEHPK3PXP",
-  "qr_code": "data:image/png;base64,...",
-  "manual_entry": "JBSWY3DPEHPK3PXP",
-  "instructions": "..."
-}
-```
+**Scan with Google Authenticator:**
+- Open Google Authenticator on your phone
+- Tap "+" or "Scan QR code"
+- Scan the QR code from the setup page
+- Account name will appear as "Word Registry Admin"
 
-**Option A:** Display the QR code:
-- Copy the `qr_code` value
-- Paste it as `src` in an `<img>` tag in your browser
-- Scan with Google Authenticator
-
-**Option B:** Manual entry:
+**Manual Entry (if QR scan doesn't work):**
 - Open Google Authenticator
 - Choose "Enter a setup key"
 - Account name: "Word Registry Admin"
-- Your key: (paste the secret)
+- Your key: (copy from setup page)
 - Type of key: Time based
 
 ### 6. Disable Setup Endpoint (Production)
