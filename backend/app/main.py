@@ -4,7 +4,7 @@ from slowapi.errors import RateLimitExceeded
 from contextlib import asynccontextmanager
 
 from .config import get_settings
-from .routes import words, purchase, leaderboard
+from .routes import words, purchase, leaderboard, payment
 from .cache import init_cache
 from .ratelimit import limiter, rate_limit_exceeded_handler
 
@@ -38,6 +38,7 @@ if settings.rate_limit_enabled:
 app.include_router(words.router)
 app.include_router(purchase.router)
 app.include_router(leaderboard.router)
+app.include_router(payment.router)
 
 # CORS middleware
 app.add_middleware(

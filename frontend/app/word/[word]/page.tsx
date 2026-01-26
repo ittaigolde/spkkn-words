@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import { wordApi, WordDetail } from "@/lib/api";
-import PurchaseModal from "@/components/PurchaseModal";
+import PurchaseModalWithPayment from "@/components/PurchaseModalWithPayment";
 
 export default function WordPage() {
   const params = useParams();
@@ -122,7 +122,7 @@ export default function WordPage() {
 
         {/* Add Word Modal */}
         {showPurchaseModal && (
-          <PurchaseModal
+          <PurchaseModalWithPayment
             word={wordText}
             price="50"
             isAddingWord={true}
@@ -235,9 +235,9 @@ export default function WordPage() {
 
       {/* Purchase Modal */}
       {showPurchaseModal && (
-        <PurchaseModal
+        <PurchaseModalWithPayment
           word={word.text}
-          price={word.price}
+          price={String(word.price)}
           onClose={() => setShowPurchaseModal(false)}
           onSuccess={handlePurchaseSuccess}
         />

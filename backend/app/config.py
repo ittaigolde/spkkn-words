@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     # Stripe
     stripe_secret_key: str = ""
     stripe_publishable_key: str = ""
+    stripe_webhook_secret: str = ""  # Optional for local testing
 
     # Application
     app_env: str = "development"

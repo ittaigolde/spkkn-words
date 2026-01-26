@@ -61,3 +61,12 @@ class PurchaseResponse(BaseModel):
     word: WordResponse
     transaction_id: int
     message: str
+
+
+class ConfirmPurchaseRequest(BaseModel):
+    """Request to confirm purchase after payment."""
+    payment_intent_id: str
+    word_text: str
+    owner_name: str
+    owner_message: str
+    is_new_word: bool

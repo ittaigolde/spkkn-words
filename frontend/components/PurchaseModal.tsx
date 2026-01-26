@@ -118,7 +118,12 @@ export default function PurchaseModal({
       }
       onSuccess();
     } catch (err: any) {
-      setError(err.response?.data?.detail || `${isAddingWord ? 'Adding word' : 'Purchase'} failed. Please try again.`);
+      const detail = err.response?.data?.detail;
+      if (Array.isArray(detail)) {
+        setError(detail.map((e: any) => e.msg).join(", "));
+      } else {
+        setError(detail || `${isAddingWord ? 'Adding word' : 'Purchase'} failed. Please try again.`);
+      }
     } finally {
       setLoading(false);
     }
