@@ -8,6 +8,9 @@ class Settings(BaseSettings):
     # Database
     database_url: str
 
+    # Redis (optional - uses in-memory cache if not set)
+    redis_url: str | None = None
+
     # Stripe
     stripe_secret_key: str = ""
     stripe_publishable_key: str = ""
@@ -15,6 +18,9 @@ class Settings(BaseSettings):
     # Application
     app_env: str = "development"
     debug: bool = True
+
+    # Rate Limiting
+    rate_limit_enabled: bool = True
 
     class Config:
         env_file = ".env"

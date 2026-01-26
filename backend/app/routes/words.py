@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 from sqlalchemy import func, or_
 from typing import Optional
@@ -8,12 +8,16 @@ from ..database import get_db
 from ..models import Word, Transaction
 from ..schemas import WordResponse, WordDetailResponse, WordSearchResponse, TransactionResponse
 from ..utils import is_word_available
+from ..ratelimit import limiter
+from ..rate_config import RateLimits
 
 router = APIRouter(prefix="/api/words", tags=["words"])
 
 
 @router.get("/search", response_model=WordSearchResponse)
+@limiter.limit(RateLimits.WORD_SEARCH)
 async def search_words(
+    request: Request,
     q: Optional[str] = Query(None, description="Search query"),
     status: Optional[str] = Query(None, description="Filter by status: available, locked, all"),
     page: int = Query(1, ge=1),
@@ -80,7 +84,9 @@ async def search_words(
 
 
 @router.get("/random", response_model=WordResponse)
+@limiter.limit(RateLimits.RANDOM_WORD)
 async def get_random_word(
+    request: Request,
     available_only: bool = Query(True, description="Only return available words"),
     base_price_only: bool = Query(True, description="Only return $1 words"),
     db: Session = Depends(get_db)
@@ -126,8 +132,10 @@ async def get_random_word(
 
 
 @router.get("/{word_text}", response_model=WordDetailResponse)
+@limiter.limit(RateLimits.WORD_DETAIL)
 async def get_word(
     word_text: str,
+    request: Request,
     db: Session = Depends(get_db)
 ):
     """

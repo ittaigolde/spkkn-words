@@ -1,18 +1,22 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..schemas import PurchaseRequest, PurchaseResponse, WordResponse
 from ..services import WordService
 from ..utils import is_word_available
+from ..ratelimit import limiter
+from ..rate_config import RateLimits
 
 router = APIRouter(prefix="/api/purchase", tags=["purchase"])
 
 
 @router.post("/{word_text}", response_model=PurchaseResponse)
+@limiter.limit(RateLimits.PURCHASE_WORD)
 async def purchase_word(
     word_text: str,
-    request: PurchaseRequest,
+    request: Request,
+    purchase_data: PurchaseRequest,
     db: Session = Depends(get_db)
 ):
     """
@@ -29,25 +33,25 @@ async def purchase_word(
 
     Args:
         word_text: The word to purchase
-        request: Purchase details (owner_name, owner_message)
+        purchase_data: Purchase details (owner_name, owner_message)
 
     Returns:
         Purchase confirmation with updated word details
     """
     # Validate content
-    is_valid, error_msg = WordService.validate_content(request.owner_message)
+    is_valid, error_msg = WordService.validate_content(purchase_data.owner_message)
     if not is_valid:
         raise HTTPException(status_code=400, detail=error_msg)
 
-    is_valid, error_msg = WordService.validate_content(request.owner_name)
+    is_valid, error_msg = WordService.validate_content(purchase_data.owner_name)
     if not is_valid:
         raise HTTPException(status_code=400, detail=error_msg)
 
     # Process the purchase
     word, transaction = WordService.steal_word(
         word_text=word_text,
-        owner_name=request.owner_name,
-        owner_message=request.owner_message,
+        owner_name=purchase_data.owner_name,
+        owner_message=purchase_data.owner_message,
         db=db
     )
 
@@ -72,9 +76,11 @@ async def purchase_word(
 
 
 @router.post("/add/{word_text}", response_model=PurchaseResponse)
+@limiter.limit(RateLimits.ADD_WORD)
 async def add_word(
     word_text: str,
-    request: PurchaseRequest,
+    request: Request,
+    purchase_data: PurchaseRequest,
     db: Session = Depends(get_db)
 ):
     """
@@ -92,25 +98,25 @@ async def add_word(
 
     Args:
         word_text: The word to add
-        request: Owner details (owner_name, owner_message)
+        purchase_data: Owner details (owner_name, owner_message)
 
     Returns:
         Confirmation with word details
     """
     # Validate content
-    is_valid, error_msg = WordService.validate_content(request.owner_message)
+    is_valid, error_msg = WordService.validate_content(purchase_data.owner_message)
     if not is_valid:
         raise HTTPException(status_code=400, detail=error_msg)
 
-    is_valid, error_msg = WordService.validate_content(request.owner_name)
+    is_valid, error_msg = WordService.validate_content(purchase_data.owner_name)
     if not is_valid:
         raise HTTPException(status_code=400, detail=error_msg)
 
     # Add the word
     word, transaction = WordService.add_word(
         word_text=word_text,
-        owner_name=request.owner_name,
-        owner_message=request.owner_message,
+        owner_name=purchase_data.owner_name,
+        owner_message=purchase_data.owner_message,
         db=db
     )
 

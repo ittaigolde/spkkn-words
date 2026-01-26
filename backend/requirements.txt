@@ -8,3 +8,7 @@ pydantic-settings==2.6.1
 stripe==11.1.0
 detoxify==0.5.2
 better-profanity==0.7.0
+slowapi==0.1.9
+fastapi-cache2[inmemory]==0.2.2
+redis==5.2.0
+requests==2.32.3

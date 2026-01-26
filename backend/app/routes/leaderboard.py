@@ -1,18 +1,25 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.orm import Session
 from sqlalchemy import func, desc
 from datetime import datetime, timezone
+from fastapi_cache.decorator import cache
 
 from ..database import get_db
 from ..models import Word, Transaction
 from ..schemas import WordResponse, TransactionResponse
 from ..utils import is_word_available
+from ..cache import CACHE_TTL_LEADERBOARD, CACHE_TTL_STATS
+from ..ratelimit import limiter
+from ..rate_config import RateLimits
 
 router = APIRouter(prefix="/api/leaderboard", tags=["leaderboard"])
 
 
 @router.get("/expensive", response_model=list[WordResponse])
+@limiter.limit(RateLimits.LEADERBOARD)
+@cache(expire=CACHE_TTL_LEADERBOARD)
 async def get_most_expensive(
+    request: Request,
     limit: int = Query(10, ge=1, le=100),
     db: Session = Depends(get_db)
 ):
@@ -43,7 +50,10 @@ async def get_most_expensive(
 
 
 @router.get("/recent", response_model=list[TransactionResponse])
+@limiter.limit(RateLimits.LEADERBOARD)
+@cache(expire=CACHE_TTL_LEADERBOARD)
 async def get_recent_purchases(
+    request: Request,
     limit: int = Query(10, ge=1, le=100),
     db: Session = Depends(get_db)
 ):
@@ -71,7 +81,9 @@ async def get_recent_purchases(
 
 
 @router.get("/stats")
-async def get_platform_stats(db: Session = Depends(get_db)):
+@limiter.limit(RateLimits.LEADERBOARD)
+@cache(expire=CACHE_TTL_STATS)
+async def get_platform_stats(request: Request, db: Session = Depends(get_db)):
     """
     Get platform-wide statistics.
 
