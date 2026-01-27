@@ -13,16 +13,16 @@ This script resets your database to factory-fresh state. **Use with extreme caut
 - ✅ All word views (exported to JSON)
 - ✅ Statistics summary
 
-### Resets (Modifies)
-- 🔄 All words reset to $1.00
-- 🔄 All ownership cleared (no owners)
-- 🔄 All lockouts removed
-- 🔄 Word list remains intact (only states reset)
-
 ### Deletes (Removes)
 - ❌ All transactions (but backed up)
 - ❌ All error logs (but backed up)
 - ❌ All word views (but backed up)
+- ❌ All words - including user-created words (but backed up)
+
+### Re-imports (Fresh Start)
+- ✅ Original 20,000 words from `20k.txt`
+- ✅ All words at $1.00 with no owners
+- ✅ No lockouts, clean slate
 
 ## When to Use
 
@@ -120,8 +120,8 @@ What will happen:
   2. ✗ All transactions will be deleted (but saved in backup)
   3. ✗ All error logs will be deleted (but saved in backup)
   4. ✗ All word views will be deleted (but saved in backup)
-  5. 🔄 All words will be reset to $1.00 with no owners
-  6. ✓ Word list will remain (only ownership/prices reset)
+  5. ✗ All words will be deleted (but saved in backup)
+  6. ✓ Original 20,000 words will be re-imported from 20k.txt
 ----------------------------------------------------------------------
 
 
@@ -163,8 +163,13 @@ Type here: ERASE
     ✓ Deleted 42 error logs
   - Deleting transactions...
     ✓ Deleted 5678 transactions
-  - Resetting all words to $1.00...
-    ✓ Reset 20000 words to factory defaults
+  - Deleting all words...
+    ✓ Deleted 20523 words
+  - Re-importing original words...
+  - Reading original words from: 20k.txt...
+    ✓ Loaded 20000 unique words
+  - Importing words into database...
+    ✓ Imported 20000 original words
 
 ✅ Factory reset complete!
 
@@ -184,9 +189,8 @@ Type here: ERASE
 
 What happened:
   ✓ All data backed up
-  ✓ All words reset to $1.00
-  ✓ All ownership cleared
-  ✓ All lockouts removed
+  ✓ All words deleted (including user-created)
+  ✓ Original 20,000 words re-imported
   ✓ All transactions deleted (but backed up)
   ✓ All logs deleted (but backed up)
 
@@ -297,10 +301,11 @@ To restore from backup, use the files in: backups/factory_reset_20260126_143022/
 - No word views
 
 **Database:**
-- `words` table: All prices = 1.00, no owners, no lockouts
+- `words` table: Exactly 20,000 original words, all prices = 1.00, no owners, no lockouts
 - `transactions` table: Empty
 - `error_logs` table: Empty
 - `word_views` table: Empty
+- User-created words: Deleted (but saved in backup)
 
 ### Next Steps
 
@@ -405,7 +410,7 @@ If you encounter issues:
 A: Not automatically. You'll need to manually restore from the backup JSON files or from a PostgreSQL backup.
 
 **Q: Will this delete the words themselves?**
-A: No. The 20,000 words remain in the database. Only ownership, prices, and transaction history are reset.
+A: Yes. ALL words (including user-created ones) are deleted, then the original 20,000 words from `20k.txt` are re-imported. This ensures a true factory reset.
 
 **Q: What if I accidentally run this in production?**
 A: The backup files are created BEFORE any changes. Restore from those files or from your PostgreSQL backup.

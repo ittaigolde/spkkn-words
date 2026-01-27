@@ -6,10 +6,11 @@ FACTORY RESET SCRIPT
 
 This script will:
 1. Export ALL data to timestamped backup files (transactions, word states, logs)
-2. Reset ALL words to $1.00 with no owners or lockouts
-3. DELETE all transactions (but saved in backup)
-4. DELETE all error logs (but saved in backup)
-5. DELETE all word views (but saved in backup)
+2. DELETE all transactions (but saved in backup)
+3. DELETE all error logs (but saved in backup)
+4. DELETE all word views (but saved in backup)
+5. DELETE all words (but saved in backup)
+6. RE-IMPORT original 20,000 words from 20k.txt
 
 This is IRREVERSIBLE. Only use this for:
 - Development/testing resets
@@ -25,8 +26,10 @@ Usage:
 import os
 import json
 from datetime import datetime
+from pathlib import Path
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session
+from sqlalchemy.dialects.postgresql import insert
 import sys
 
 from app.config import get_settings
@@ -177,9 +180,60 @@ def export_data_to_backup() -> str:
     return backup_dir
 
 
+def reimport_original_words():
+    """
+    Re-import the original 20,000 words from 20k.txt.
+    """
+    words_file = Path(__file__).parent.parent / "words-raw" / "20k.txt"
+
+    if not words_file.exists():
+        raise FileNotFoundError(f"Original word list not found: {words_file}")
+
+    print_info(f"  - Reading original words from: {words_file.name}...")
+
+    # Read all words from file
+    with open(words_file, 'r', encoding='utf-8') as f:
+        words = [line.strip().lower() for line in f if line.strip()]
+
+    # Remove duplicates while preserving order
+    unique_words = list(dict.fromkeys(words))
+    print_success(f"    ✓ Loaded {len(unique_words)} unique words")
+
+    # Import in batches
+    print_info("  - Importing words into database...")
+    batch_size = 1000
+    imported = 0
+
+    with Session(engine) as session:
+        for i in range(0, len(unique_words), batch_size):
+            batch = unique_words[i:i + batch_size]
+
+            # Prepare batch data
+            word_data = [
+                {
+                    "text": word,
+                    "price": 1.00,
+                    "owner_name": None,
+                    "owner_message": None,
+                    "lockout_ends_at": None
+                }
+                for word in batch
+            ]
+
+            # Use PostgreSQL's INSERT
+            stmt = insert(Word).values(word_data)
+            result = session.execute(stmt)
+            session.commit()
+
+            imported += result.rowcount
+
+        print_success(f"    ✓ Imported {imported} original words")
+
+
 def perform_factory_reset():
     """
     Reset the database to factory defaults.
+    Deletes everything and re-imports original words from 20k.txt.
     """
     print_info("\n🔄 Performing factory reset...\n")
 
@@ -202,18 +256,18 @@ def perform_factory_reset():
         session.commit()
         print_success(f"    ✓ Deleted {deleted_transactions} transactions")
 
-        # Reset all words to factory defaults
-        print_info("  - Resetting all words to $1.00...")
-        words = session.query(Word).all()
-        reset_count = 0
-        for word in words:
-            word.price = 1.00
-            word.owner_name = None
-            word.owner_message = None
-            word.lockout_ends_at = None
-            reset_count += 1
+        # Delete ALL words (including user-created ones)
+        print_info("  - Deleting all words...")
+        deleted_words = session.query(Word).delete()
         session.commit()
-        print_success(f"    ✓ Reset {reset_count} words to factory defaults")
+        print_success(f"    ✓ Deleted {deleted_words} words")
+
+    # Re-import original words from 20k.txt
+    print_info("  - Re-importing original words...")
+    try:
+        reimport_original_words()
+    except FileNotFoundError as e:
+        raise Exception(f"Cannot complete factory reset: {e}")
 
     print_success("\n✅ Factory reset complete!\n")
 
@@ -265,8 +319,8 @@ def main():
     print("  2. ✗ All transactions will be deleted (but saved in backup)")
     print("  3. ✗ All error logs will be deleted (but saved in backup)")
     print("  4. ✗ All word views will be deleted (but saved in backup)")
-    print("  5. 🔄 All words will be reset to $1.00 with no owners")
-    print("  6. ✓ Word list will remain (only ownership/prices reset)")
+    print("  5. ✗ All words will be deleted (but saved in backup)")
+    print("  6. ✓ Original 20,000 words will be re-imported from 20k.txt")
     print("-"*70 + "\n")
 
     # First confirmation
@@ -325,9 +379,8 @@ def main():
     print(f"\n📦 Your data backup is saved at: {BOLD}{backup_dir}/{END}")
     print("\nWhat happened:")
     print(f"  {GREEN}✓{END} All data backed up")
-    print(f"  {GREEN}✓{END} All words reset to $1.00")
-    print(f"  {GREEN}✓{END} All ownership cleared")
-    print(f"  {GREEN}✓{END} All lockouts removed")
+    print(f"  {GREEN}✓{END} All words deleted (including user-created)")
+    print(f"  {GREEN}✓{END} Original 20,000 words re-imported")
     print(f"  {GREEN}✓{END} All transactions deleted (but backed up)")
     print(f"  {GREEN}✓{END} All logs deleted (but backed up)")
     print("\nYour database is now in factory-fresh state!")
