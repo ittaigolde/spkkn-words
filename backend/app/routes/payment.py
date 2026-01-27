@@ -72,11 +72,17 @@ async def create_payment_intent(
             amount = int(float(word.price) * 100)  # Convert to cents
             description = f"Purchase word '{word_text}' from The Word Registry"
 
+        # Create statement descriptor for credit card statement
+        # Format: "WORD* LOVE" (max 22 chars, limited character set)
+        word_upper = word_text.upper()[:16]  # Leave room for "WORD* "
+        statement_descriptor = f"WORD* {word_upper}"
+
         # Create PaymentIntent
         payment_intent = stripe.PaymentIntent.create(
             amount=amount,
             currency="usd",
             description=description,
+            statement_descriptor=statement_descriptor,
             metadata={
                 "word": word_text,
                 "is_new_word": str(is_new_word)
