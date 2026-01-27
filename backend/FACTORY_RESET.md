@@ -1,8 +1,12 @@
-# Factory Reset Script
+# Factory Reset & Restore Scripts
 
 ## ⚠️ WARNING: DESTRUCTIVE OPERATION ⚠️
 
-This script resets your database to factory-fresh state. **Use with extreme caution!**
+This document covers two scripts:
+- **`factory_reset.py`** - Resets database to factory-fresh state
+- **`restore_from_backup.py`** - Restores database from a backup
+
+**Use with extreme caution!**
 
 ## What It Does
 
@@ -49,13 +53,15 @@ Not `y` or `yes` - must type exact 5-letter words.
 ### Automatic Backup
 Before any changes, all data is exported to:
 ```
-backups/factory_reset_YYYYMMDD_HHMMSS/
+backend/backups/factory_reset_YYYYMMDD_HHMMSS/
 ├── transactions.json      (All transaction history)
 ├── word_states.json       (All word ownership states)
 ├── error_logs.json        (All error logs)
 ├── word_views.json        (All analytics data)
 └── summary.json           (Statistics snapshot)
 ```
+
+**Note:** The `backend/backups/` directory is automatically created and excluded from git (see `.gitignore`).
 
 ### Abort Points
 - Press `Ctrl+C` at any time before second confirmation
@@ -71,11 +77,24 @@ cd backend
 source venv/bin/activate  # Windows: venv\Scripts\activate
 ```
 
-### Run Script
+### Factory Reset
 
 ```bash
 python factory_reset.py
 ```
+
+This will reset the database to factory defaults (see "What It Does" below).
+
+### Restore from Backup
+
+```bash
+python restore_from_backup.py
+```
+
+This will:
+1. Show list of available backups
+2. Let you select one to restore
+3. Restore all data from that backup
 
 ### Interactive Process
 
@@ -254,35 +273,60 @@ To restore from backup, use the files in: backups/factory_reset_20260126_143022/
 
 ## Restoring from Backup
 
+### Automated Restoration (Recommended) ✅
+
+Use the included restore script:
+
+```bash
+cd backend
+source venv/bin/activate  # Windows: venv\Scripts\activate
+python restore_from_backup.py
+```
+
+**The script will:**
+1. List all available backups
+2. Show backup details (date, statistics)
+3. Let you select which backup to restore
+4. Ask for confirmation (type "RESTORE")
+5. Restore all data (words, transactions, logs, views)
+
+**Important Notes:**
+- Words are matched by text (not ID)
+- Existing words are UPDATED with backup data
+- Missing words are CREATED from backup
+- Transactions/views get new IDs (auto-increment)
+- Existing data is NOT deleted, only merged/updated
+
 ### Manual Restoration
 
-1. **Restore word states:**
-   ```python
-   import json
-   from app.models import Word
-   from app.database import SessionLocal
+If you prefer manual restoration, you can use the JSON files directly:
 
-   with open('backups/factory_reset_TIMESTAMP/word_states.json') as f:
-       states = json.load(f)
+```python
+import json
+from app.models import Word
+from app.database import SessionLocal
 
-   db = SessionLocal()
-   for state in states:
-       word = db.query(Word).filter(Word.text == state['text']).first()
-       if word:
-           word.price = state['price']
-           word.owner_name = state['owner_name']
-           word.owner_message = state['owner_message']
-           # ... etc
-   db.commit()
-   ```
+with open('backend/backups/factory_reset_TIMESTAMP/word_states.json') as f:
+    states = json.load(f)
 
-2. **Restore transactions:**
-   - Transactions have auto-increment IDs, so you'd need to restore carefully
-   - Consider if you actually need transaction history or just word states
+db = SessionLocal()
+for state in states:
+    word = db.query(Word).filter(Word.text == state['text']).first()
+    if word:
+        word.price = state['price']
+        word.owner_name = state['owner_name']
+        word.owner_message = state['owner_message']
+        # ... etc
+db.commit()
+```
 
-3. **Alternative: Database backup/restore**
-   - Use PostgreSQL's pg_dump/pg_restore for full restoration
-   - Backup files are for reference/audit, not full restoration
+### Full Database Restore
+
+For complete database restoration:
+```bash
+# Use PostgreSQL's pg_restore if you have a full database dump
+pg_restore -d word_registry pre_reset.sql
+```
 
 ## After Reset
 
@@ -352,8 +396,8 @@ To restore from backup, use the files in: backups/factory_reset_20260126_143022/
 - May need to manually complete reset or restore
 
 ### "Want to undo reset"
-- Use backup files in `backups/factory_reset_TIMESTAMP/`
-- Manually restore data (see "Restoring from Backup")
+- Run `python restore_from_backup.py` (automated)
+- Or manually use backup files in `backend/backups/factory_reset_TIMESTAMP/`
 - Or restore from PostgreSQL backup if available
 
 ## Best Practices
@@ -425,7 +469,10 @@ A: Usually 10-30 seconds depending on database size. Most time is spent exportin
 A: `backend/backups/factory_reset_TIMESTAMP/` (timestamped folders)
 
 **Q: Should I commit backups to git?**
-A: NO! Backups contain user data. Add `backups/` to `.gitignore`.
+A: NO! Backups contain user data. The `backups/` directory is already in `.gitignore`.
+
+**Q: How do I restore from a backup?**
+A: Run `python restore_from_backup.py` and select the backup to restore.
 
 ---
 

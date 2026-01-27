@@ -37,3 +37,6 @@ wheels/
 # OS
 .DS_Store
 Thumbs.db
+
+# Backups (contain sensitive user data)
+backups/

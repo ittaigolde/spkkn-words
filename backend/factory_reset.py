@@ -74,8 +74,10 @@ def export_data_to_backup() -> str:
         Path to backup directory
     """
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    backup_dir = f"backups/factory_reset_{timestamp}"
-    os.makedirs(backup_dir, exist_ok=True)
+    backup_root = Path(__file__).parent / "backups"
+    backup_dir = backup_root / f"factory_reset_{timestamp}"
+    backup_dir.mkdir(parents=True, exist_ok=True)
+    backup_dir = str(backup_dir)
 
     print_info(f"\n📦 Exporting data to: {backup_dir}/")
 
