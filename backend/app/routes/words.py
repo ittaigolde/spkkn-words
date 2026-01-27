@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func, or_
 from typing import Optional
 from datetime import datetime, timezone
+from pydantic import BaseModel
 
 from ..database import get_db
 from ..models import Word, Transaction
@@ -10,8 +11,14 @@ from ..schemas import WordResponse, WordDetailResponse, WordSearchResponse, Tran
 from ..utils import is_word_available
 from ..ratelimit import limiter
 from ..rate_config import RateLimits
+from ..services import WordService
 
 router = APIRouter(prefix="/api/words", tags=["words"])
+
+
+class ValidateContentRequest(BaseModel):
+    owner_name: str
+    owner_message: str
 
 
 @router.get("/search", response_model=WordSearchResponse)
@@ -185,3 +192,36 @@ async def get_word(
         transaction_count=len(transactions),
         transactions=transaction_responses
     )
+
+
+@router.post("/validate-content")
+@limiter.limit("30/minute")
+async def validate_content(
+    request: Request,
+    content: ValidateContentRequest
+):
+    """
+    Validate owner name and message for profanity and toxic content.
+    This allows frontend to validate before payment processing.
+
+    Returns:
+        {"valid": true} if content is acceptable
+        {"valid": false, "error": "reason"} if content is rejected
+    """
+    # Validate owner_name
+    is_valid, error_msg = WordService.validate_content(content.owner_name)
+    if not is_valid:
+        return {
+            "valid": False,
+            "error": f"Name validation failed: {error_msg}"
+        }
+
+    # Validate owner_message
+    is_valid, error_msg = WordService.validate_content(content.owner_message)
+    if not is_valid:
+        return {
+            "valid": False,
+            "error": f"Message validation failed: {error_msg}"
+        }
+
+    return {"valid": True}

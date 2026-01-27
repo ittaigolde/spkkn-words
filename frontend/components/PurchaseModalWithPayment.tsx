@@ -90,7 +90,7 @@ export default function PurchaseModalWithPayment({
       return;
     }
 
-    // Validate content
+    // Validate content (frontend checks)
     const nameError = validateContent(ownerName);
     if (nameError) {
       setError(nameError);
@@ -108,8 +108,38 @@ export default function PurchaseModalWithPayment({
       return;
     }
 
-    // Create payment intent
+    // Validate content with backend (profanity & toxicity check)
     setLoading(true);
+    try {
+      console.log("Validating content...");
+      const validationResponse = await axios.post(
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/words/validate-content`,
+        {
+          owner_name: ownerName,
+          owner_message: ownerMessage
+        }
+      );
+
+      if (!validationResponse.data.valid) {
+        setError(validationResponse.data.error || "Content validation failed");
+        setLoading(false);
+        return;
+      }
+
+      console.log("Content validated successfully");
+    } catch (err: any) {
+      console.error("Content validation failed:", err);
+      const detail = err.response?.data?.detail;
+      if (Array.isArray(detail)) {
+        setError(detail.map((e: any) => e.msg).join(", "));
+      } else {
+        setError(detail || "Content validation failed");
+      }
+      setLoading(false);
+      return;
+    }
+
+    // Create payment intent (only after validation passes)
     try {
       console.log("Creating payment intent for:", word, "isAddingWord:", isAddingWord);
       const response = await axios.post(
