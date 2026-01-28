@@ -19,6 +19,8 @@ class WordResponse(WordBase):
     is_available: bool
     created_at: datetime
     updated_at: datetime
+    moderation_status: Optional[str] = None
+    report_count: Optional[int] = None
 
     class Config:
         from_attributes = True
@@ -70,3 +72,28 @@ class ConfirmPurchaseRequest(BaseModel):
     owner_name: str
     owner_message: str
     is_new_word: bool
+
+
+class ReportResponse(BaseModel):
+    """Response after reporting a message."""
+    success: bool
+    message: str
+    report_count: int
+
+
+class ReportedMessageResponse(BaseModel):
+    """Response for reported messages in admin panel."""
+    word_id: int
+    word_text: str
+    owner_name: Optional[str]
+    owner_message: Optional[str]
+    report_count: int
+    moderation_status: Optional[str]
+    moderated_at: Optional[datetime]
+    updated_at: datetime
+
+
+class ModerateMessageRequest(BaseModel):
+    """Request to moderate a message."""
+    word_id: int
+    action: str  # "approve" or "reject"

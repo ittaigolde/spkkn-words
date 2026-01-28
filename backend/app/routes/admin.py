@@ -2,7 +2,7 @@
 Admin API routes.
 Protected with TOTP authentication.
 """
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Query
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, Field
 from decimal import Decimal
@@ -30,6 +30,12 @@ class ResetWordRequest(BaseModel):
     new_price: Decimal = Field(..., gt=0)
     owner_name: Optional[str] = None
     owner_message: Optional[str] = Field(None, max_length=140)
+
+
+class ModerateMessageRequest(BaseModel):
+    """Request to moderate a reported message."""
+    word_id: int
+    action: str = Field(..., pattern="^(approve|reject|protect)$")
 
 
 @router.post("/login")
@@ -201,3 +207,74 @@ async def reset_word(
         }
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.get("/reported-messages")
+async def get_reported_messages(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    authorized: bool = Depends(verify_admin_token),
+    db: Session = Depends(get_db)
+):
+    """
+    Get all reported messages (with at least 1 report) that are still current.
+
+    Requires: X-Admin-Token header with valid TOTP code
+
+    Args:
+        page: Page number (default: 1)
+        page_size: Results per page (default: 20, max: 100)
+
+    Returns:
+        Paginated list of reported messages with word info and report counts
+    """
+    return AdminService.get_reported_messages(db, page, page_size)
+
+
+@router.post("/moderate-message")
+async def moderate_message(
+    moderate_data: "ModerateMessageRequest",
+    authorized: bool = Depends(verify_admin_token),
+    db: Session = Depends(get_db)
+):
+    """
+    Approve, reject, or protect a reported message.
+
+    - approve: Message returns to normal
+    - reject: Message replaced with "[This message has been marked as abusive]"
+    - protect: Message cannot be reported/flagged, countdown timer resets, all reports cleared
+
+    Requires: X-Admin-Token header with valid TOTP code
+
+    Args:
+        moderate_data: Word ID and action (approve/reject/protect)
+
+    Returns:
+        Updated word information
+    """
+    try:
+        word = AdminService.moderate_message(
+            db=db,
+            word_id=moderate_data.word_id,
+            action=moderate_data.action
+        )
+
+        action_past = {
+            "approve": "approved",
+            "reject": "rejected",
+            "protect": "protected"
+        }.get(moderate_data.action, moderate_data.action + "d")
+
+        return {
+            "success": True,
+            "message": f"Message {action_past} successfully",
+            "word": {
+                "id": word.id,
+                "text": word.text,
+                "moderation_status": word.moderation_status,
+                "moderated_at": word.moderated_at.isoformat() if word.moderated_at else None,
+                "lockout_ends_at": word.lockout_ends_at.isoformat() if word.lockout_ends_at else None
+            }
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))

@@ -6,8 +6,42 @@ from fastapi import HTTPException
 from detoxify import Detoxify
 from better_profanity import profanity
 
-from .models import Word, Transaction
+from .models import Word, Transaction, MessageReport
 from .utils import is_word_available
+from .config import get_settings
+
+settings = get_settings()
+
+
+def filter_message_for_moderation(owner_message: str, moderation_status: str, report_count: int) -> str:
+    """
+    Filter owner_message based on moderation status and report count.
+
+    Args:
+        owner_message: Original message
+        moderation_status: null/pending/approved/rejected/protected
+        report_count: Number of reports
+
+    Returns:
+        Filtered message or placeholder text
+    """
+    if not owner_message:
+        return owner_message
+
+    # If rejected by admin, replace with abusive message
+    if moderation_status == "rejected":
+        return "[This message has been marked as abusive]"
+
+    # If protected or approved by admin, show original message
+    if moderation_status in ["protected", "approved"]:
+        return owner_message
+
+    # If pending moderation (status == "pending") or reached threshold without moderation
+    if moderation_status == "pending" or (report_count >= settings.report_threshold and not moderation_status):
+        return "[Pending content verification]"
+
+    # Default: show original message
+    return owner_message
 
 # Initialize detoxify model (loads once)
 _detoxify_model = None

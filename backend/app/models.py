@@ -17,13 +17,19 @@ class Word(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
+    # Moderation fields
+    moderation_status = Column(String(20), nullable=True)  # null/pending/approved/rejected
+    moderated_at = Column(DateTime(timezone=True), nullable=True)
+
     # Relationships
     transactions = relationship("Transaction", back_populates="word")
+    reports = relationship("MessageReport", back_populates="word")
 
     # Indexes
     __table_args__ = (
         Index('idx_words_price', 'price'),
         Index('idx_words_lockout_ends_at', 'lockout_ends_at'),
+        Index('idx_words_moderation_status', 'moderation_status'),
     )
 
 
@@ -84,4 +90,24 @@ class WordView(Base):
     __table_args__ = (
         Index('idx_word_views_word_id', 'word_id'),
         Index('idx_word_views_timestamp', 'timestamp'),
+    )
+
+
+class MessageReport(Base):
+    """Message report model - tracks reports of offensive messages."""
+    __tablename__ = "message_reports"
+
+    id = Column(Integer, primary_key=True, index=True)
+    word_id = Column(Integer, ForeignKey("words.id"), nullable=False)
+    ip_address = Column(String(45), nullable=True)  # IPv6 compatible
+    timestamp = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    # Relationships
+    word = relationship("Word", back_populates="reports")
+
+    # Indexes
+    __table_args__ = (
+        Index('idx_message_reports_word_id', 'word_id'),
+        Index('idx_message_reports_timestamp', 'timestamp'),
+        Index('idx_message_reports_ip_word', 'ip_address', 'word_id'),  # For checking duplicates
     )

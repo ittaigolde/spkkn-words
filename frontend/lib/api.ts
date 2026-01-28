@@ -20,6 +20,8 @@ export interface Word {
   is_available: boolean;
   created_at: string;
   updated_at: string;
+  moderation_status: string | null;
+  report_count: number | null;
 }
 
 export interface WordDetail extends Word {
@@ -85,6 +87,15 @@ export const wordApi = {
       owner_name: ownerName,
       owner_message: ownerMessage,
     });
+    return response.data;
+  },
+
+  reportMessage: async (word: string) => {
+    const response = await api.post<{
+      success: boolean;
+      message: string;
+      report_count: number;
+    }>(`/api/words/${word}/report`);
     return response.data;
   },
 };

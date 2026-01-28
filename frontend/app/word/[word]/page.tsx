@@ -14,10 +14,61 @@ export default function WordPage() {
   const [error, setError] = useState<string | null>(null);
   const [timeRemaining, setTimeRemaining] = useState<string>("");
   const [showPurchaseModal, setShowPurchaseModal] = useState(false);
+  const [reportStatus, setReportStatus] = useState<'idle' | 'pending' | 'reported'>('idle');
+  const [reportMessage, setReportMessage] = useState<string>('');
 
   useEffect(() => {
     loadWord();
+    checkReportStatus();
   }, [wordText]);
+
+  const checkReportStatus = () => {
+    const reportCookie = document.cookie
+      .split('; ')
+      .find(row => row.startsWith(`reported_${wordText}=`));
+
+    if (reportCookie) {
+      const reportDate = reportCookie.split('=')[1];
+      const reportTime = new Date(reportDate).getTime();
+      const now = new Date().getTime();
+      const dayInMs = 24 * 60 * 60 * 1000;
+
+      if (now - reportTime < dayInMs) {
+        setReportStatus('reported');
+      } else {
+        setReportStatus('idle');
+      }
+    } else {
+      setReportStatus('idle');
+    }
+  };
+
+  const handleReport = async () => {
+    if (reportStatus === 'reported') return;
+
+    try {
+      setReportStatus('pending');
+      setReportMessage('Submitting report...');
+
+      const result = await wordApi.reportMessage(wordText);
+
+      // Set cookie for 24 hours
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      document.cookie = `reported_${wordText}=${new Date().toISOString()}; expires=${tomorrow.toUTCString()}; path=/`;
+
+      setReportStatus('reported');
+      setReportMessage(`Report submitted. This message has ${result.report_count} report(s).`);
+
+      // Clear message after 5 seconds
+      setTimeout(() => setReportMessage(''), 5000);
+    } catch (err: any) {
+      setReportStatus('idle');
+      const errorMsg = err.response?.data?.detail || 'Failed to submit report';
+      setReportMessage(errorMsg);
+      setTimeout(() => setReportMessage(''), 5000);
+    }
+  };
 
   // Countdown timer
   useEffect(() => {
@@ -180,8 +231,38 @@ export default function WordPage() {
             <p className="text-lg font-bold text-gray-900">{word.owner_name}</p>
             {word.owner_message && (
               <div className="mt-3">
-                <h4 className="font-semibold text-gray-700 mb-1">Message</h4>
+                <div className="flex justify-between items-start mb-1">
+                  <h4 className="font-semibold text-gray-700">Message</h4>
+                  {!word.owner_message.startsWith('[') && word.moderation_status !== 'protected' && (
+                    <button
+                      onClick={handleReport}
+                      disabled={reportStatus !== 'idle'}
+                      className={`text-sm px-3 py-1 rounded ${
+                        reportStatus === 'reported'
+                          ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                          : reportStatus === 'pending'
+                          ? 'bg-yellow-100 text-yellow-700 cursor-wait'
+                          : 'bg-red-100 text-red-700 hover:bg-red-200 cursor-pointer'
+                      }`}
+                      title={reportStatus === 'reported' ? 'You can report once per day' : 'Report offensive content'}
+                    >
+                      {reportStatus === 'reported'
+                        ? 'Report Pending'
+                        : reportStatus === 'pending'
+                        ? 'Reporting...'
+                        : 'Report'}
+                    </button>
+                  )}
+                  {word.moderation_status === 'protected' && (
+                    <span className="text-sm px-3 py-1 bg-blue-100 text-blue-700 rounded">
+                      Protected ✓
+                    </span>
+                  )}
+                </div>
                 <p className="text-gray-800 italic">&quot;{word.owner_message}&quot;</p>
+                {reportMessage && (
+                  <p className="text-sm text-blue-600 mt-2">{reportMessage}</p>
+                )}
               </div>
             )}
           </div>

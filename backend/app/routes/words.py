@@ -6,12 +6,13 @@ from datetime import datetime, timezone
 from pydantic import BaseModel
 
 from ..database import get_db
-from ..models import Word, Transaction
-from ..schemas import WordResponse, WordDetailResponse, WordSearchResponse, TransactionResponse
+from ..models import Word, Transaction, MessageReport
+from ..schemas import WordResponse, WordDetailResponse, WordSearchResponse, TransactionResponse, ReportResponse
 from ..utils import is_word_available
 from ..ratelimit import limiter
 from ..rate_config import RateLimits
-from ..services import WordService
+from ..services import WordService, filter_message_for_moderation
+from ..admin_service import AdminService
 
 router = APIRouter(prefix="/api/words", tags=["words"])
 
@@ -66,19 +67,31 @@ async def search_words(
     # Apply pagination
     words = query.order_by(Word.text).offset((page - 1) * page_size).limit(page_size).all()
 
-    # Add is_available field
+    # Add is_available field and filter messages
     word_responses = []
     for word in words:
+        # Get report count
+        report_count = db.query(MessageReport).filter(MessageReport.word_id == word.id).count()
+
+        # Filter message based on moderation status
+        filtered_message = filter_message_for_moderation(
+            word.owner_message,
+            word.moderation_status,
+            report_count
+        )
+
         word_dict = {
             "id": word.id,
             "text": word.text,
             "price": word.price,
             "owner_name": word.owner_name,
-            "owner_message": word.owner_message,
+            "owner_message": filtered_message,
             "lockout_ends_at": word.lockout_ends_at,
             "is_available": is_word_available(word.lockout_ends_at),
             "created_at": word.created_at,
-            "updated_at": word.updated_at
+            "updated_at": word.updated_at,
+            "moderation_status": word.moderation_status,
+            "report_count": report_count
         }
         word_responses.append(WordResponse(**word_dict))
 
@@ -125,16 +138,28 @@ async def get_random_word(
     if not word:
         raise HTTPException(status_code=404, detail="No words found matching criteria")
 
+    # Get report count
+    report_count = db.query(MessageReport).filter(MessageReport.word_id == word.id).count()
+
+    # Filter message based on moderation status
+    filtered_message = filter_message_for_moderation(
+        word.owner_message,
+        word.moderation_status,
+        report_count
+    )
+
     return WordResponse(
         id=word.id,
         text=word.text,
         price=word.price,
         owner_name=word.owner_name,
-        owner_message=word.owner_message,
+        owner_message=filtered_message,
         lockout_ends_at=word.lockout_ends_at,
         is_available=is_word_available(word.lockout_ends_at),
         created_at=word.created_at,
-        updated_at=word.updated_at
+        updated_at=word.updated_at,
+        moderation_status=word.moderation_status,
+        report_count=report_count
     )
 
 
@@ -179,16 +204,28 @@ async def get_word(
         for t in transactions
     ]
 
+    # Get report count
+    report_count = db.query(MessageReport).filter(MessageReport.word_id == word.id).count()
+
+    # Filter message based on moderation status
+    filtered_message = filter_message_for_moderation(
+        word.owner_message,
+        word.moderation_status,
+        report_count
+    )
+
     return WordDetailResponse(
         id=word.id,
         text=word.text,
         price=word.price,
         owner_name=word.owner_name,
-        owner_message=word.owner_message,
+        owner_message=filtered_message,
         lockout_ends_at=word.lockout_ends_at,
         is_available=is_word_available(word.lockout_ends_at),
         created_at=word.created_at,
         updated_at=word.updated_at,
+        moderation_status=word.moderation_status,
+        report_count=report_count,
         transaction_count=len(transactions),
         transactions=transaction_responses
     )
@@ -225,3 +262,46 @@ async def validate_content(
         }
 
     return {"valid": True}
+
+
+@router.post("/{word_text}/report", response_model=ReportResponse)
+@limiter.limit("5/day")
+async def report_message(
+    request: Request,
+    word_text: str,
+    db: Session = Depends(get_db)
+):
+    """
+    Report a word's message as offensive.
+    Limited to 5 reports per day per IP address (via rate limiter).
+
+    Args:
+        word_text: The word whose message to report
+
+    Returns:
+        Report confirmation with current report count
+    """
+    # Find the word
+    word = db.query(Word).filter(func.lower(Word.text) == word_text.lower()).first()
+
+    if not word:
+        raise HTTPException(status_code=404, detail="Word not found")
+
+    if not word.owner_message:
+        raise HTTPException(status_code=400, detail="This word has no message to report")
+
+    # Check if message is protected
+    if word.moderation_status == "protected":
+        raise HTTPException(status_code=400, detail="This message has been protected by moderators and cannot be reported")
+
+    # Get client IP
+    ip_address = request.client.host if request.client else None
+
+    # Create report
+    report_count = AdminService.report_message(db, word.id, ip_address)
+
+    return ReportResponse(
+        success=True,
+        message="Report submitted successfully",
+        report_count=report_count
+    )

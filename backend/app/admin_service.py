@@ -3,13 +3,16 @@ Admin service for analytics, error logging, and word management.
 """
 from sqlalchemy.orm import Session
 from sqlalchemy import func, and_, or_
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Optional
 import traceback
 
-from .models import Word, Transaction, ErrorLog, WordView
+from .models import Word, Transaction, ErrorLog, WordView, MessageReport
 from .utils import is_word_available
+from .config import get_settings
+
+settings = get_settings()
 
 
 class AdminService:
@@ -78,8 +81,8 @@ class AdminService:
             - today_transactions: Transactions today
             - week_transactions: Transactions this week
         """
-        now = datetime.utcnow()
-        today_start = datetime(now.year, now.month, now.day)
+        now = datetime.now(timezone.utc)
+        today_start = datetime(now.year, now.month, now.day, tzinfo=timezone.utc)
         week_start = now - timedelta(days=7)
 
         # Total income (exclude admin actions)
@@ -154,7 +157,7 @@ class AdminService:
         Returns:
             List of dictionaries with word info and view count
         """
-        thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+        thirty_days_ago = datetime.now(timezone.utc) - timedelta(days=30)
 
         # Query views grouped by word
         results = db.query(
@@ -254,7 +257,7 @@ class AdminService:
 
             # Set lockout based on new price
             lockout_hours = float(new_price)
-            word.lockout_ends_at = datetime.utcnow() + timedelta(hours=lockout_hours)
+            word.lockout_ends_at = datetime.now(timezone.utc) + timedelta(hours=lockout_hours)
         else:
             # Clear ownership if no owner specified
             word.owner_name = None
@@ -292,7 +295,7 @@ class AdminService:
         available_words = db.query(Word).filter(
             or_(
                 Word.lockout_ends_at == None,
-                Word.lockout_ends_at < datetime.utcnow()
+                Word.lockout_ends_at < datetime.now(timezone.utc)
             )
         ).count()
 
@@ -306,3 +309,163 @@ class AdminService:
                 "locked_words": total_words - available_words
             }
         }
+
+    @staticmethod
+    def report_message(db: Session, word_id: int, ip_address: Optional[str] = None) -> int:
+        """
+        Report a message as offensive.
+
+        Args:
+            db: Database session
+            word_id: ID of word with offensive message
+            ip_address: Reporter's IP address (optional)
+
+        Returns:
+            Current report count for the word
+        """
+        # Create report
+        report = MessageReport(word_id=word_id, ip_address=ip_address)
+        db.add(report)
+        db.commit()
+
+        # Get current report count
+        report_count = db.query(MessageReport).filter(MessageReport.word_id == word_id).count()
+
+        # Auto-moderate if threshold reached and not already moderated
+        word = db.query(Word).filter(Word.id == word_id).first()
+        if word and report_count >= settings.report_threshold and not word.moderation_status:
+            word.moderation_status = "pending"
+            db.commit()
+
+        return report_count
+
+    @staticmethod
+    def get_reported_messages(db: Session, page: int = 1, page_size: int = 20) -> dict:
+        """
+        Get all messages that have been reported and are still current.
+        Only shows messages that are still active on the word (not replaced by new owner).
+
+        Args:
+            db: Database session
+            page: Page number (1-indexed)
+            page_size: Number of results per page
+
+        Returns:
+            Dictionary with reported messages, pagination info
+        """
+        # Get words with reports where the message is still current
+        # (has reports and owner_message is not None)
+        query = db.query(
+            Word.id,
+            Word.text,
+            Word.owner_name,
+            Word.owner_message,
+            Word.moderation_status,
+            Word.moderated_at,
+            Word.updated_at,
+            Word.lockout_ends_at,
+            func.count(MessageReport.id).label('report_count')
+        )\
+            .join(MessageReport, Word.id == MessageReport.word_id)\
+            .filter(Word.owner_message.isnot(None))\
+            .group_by(
+                Word.id,
+                Word.text,
+                Word.owner_name,
+                Word.owner_message,
+                Word.moderation_status,
+                Word.moderated_at,
+                Word.updated_at,
+                Word.lockout_ends_at
+            )\
+            .having(func.count(MessageReport.id) >= 1)\
+            .order_by(func.count(MessageReport.id).desc())
+
+        # Get total count
+        total = query.count()
+
+        # Apply pagination
+        offset = (page - 1) * page_size
+        results = query.offset(offset).limit(page_size).all()
+
+        return {
+            "messages": [
+                {
+                    "word_id": row.id,
+                    "word_text": row.text,
+                    "owner_name": row.owner_name,
+                    "owner_message": row.owner_message,
+                    "report_count": row.report_count,
+                    "moderation_status": row.moderation_status,
+                    "moderated_at": row.moderated_at.isoformat() if row.moderated_at else None,
+                    "updated_at": row.updated_at.isoformat(),
+                    "lockout_ends_at": row.lockout_ends_at.isoformat() if row.lockout_ends_at else None
+                }
+                for row in results
+            ],
+            "total": total,
+            "page": page,
+            "page_size": page_size,
+            "total_pages": (total + page_size - 1) // page_size
+        }
+
+    @staticmethod
+    def moderate_message(db: Session, word_id: int, action: str) -> Word:
+        """
+        Moderate a reported message.
+
+        Args:
+            db: Database session
+            word_id: ID of word to moderate
+            action: "approve", "reject", or "protect"
+
+        Returns:
+            Updated Word instance
+
+        Raises:
+            ValueError: If word not found or invalid action
+        """
+        word = db.query(Word).filter(Word.id == word_id).first()
+
+        if not word:
+            raise ValueError(f"Word with ID {word_id} not found")
+
+        if action not in ["approve", "reject", "protect"]:
+            raise ValueError(f"Invalid action: {action}")
+
+        if action == "protect":
+            # Protected messages cannot be reported/flagged
+            word.moderation_status = "protected"
+            word.moderated_at = datetime.now(timezone.utc)
+
+            # Reset countdown timer if word is currently locked
+            if word.lockout_ends_at and word.lockout_ends_at > datetime.now(timezone.utc):
+                # Calculate lockout based on the price paid (current price - 1)
+                price_paid = float(word.price) - 1
+                lockout_hours = price_paid  # 1 hour per dollar paid
+                word.lockout_ends_at = datetime.now(timezone.utc) + timedelta(hours=lockout_hours)
+
+            # Clear all reports for this word since it's now protected
+            db.query(MessageReport).filter(MessageReport.word_id == word_id).delete()
+        else:
+            word.moderation_status = "approved" if action == "approve" else "rejected"
+            word.moderated_at = datetime.now(timezone.utc)
+
+        db.commit()
+        db.refresh(word)
+
+        return word
+
+    @staticmethod
+    def get_report_count(db: Session, word_id: int) -> int:
+        """
+        Get the number of reports for a specific word.
+
+        Args:
+            db: Database session
+            word_id: ID of word
+
+        Returns:
+            Report count
+        """
+        return db.query(MessageReport).filter(MessageReport.word_id == word_id).count()

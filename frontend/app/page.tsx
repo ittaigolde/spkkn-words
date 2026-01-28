@@ -114,41 +114,58 @@ export default function Home() {
           <h3 className="text-2xl font-bold text-gray-900 mb-4">
             💰 Most Expensive Words
           </h3>
-          <div className="space-y-3">
-            {mostExpensive.map((word, index) => (
-              <Link
-                key={word.id}
-                href={`/word/${word.text}`}
-                className="block p-3 hover:bg-gray-50 rounded-lg transition-colors"
+          {mostExpensive.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-gray-500 mb-4">
+                No words have been claimed yet.
+              </p>
+              <p className="text-lg font-semibold text-blue-600 mb-4">
+                Be the first! Claim a word and make history.
+              </p>
+              <button
+                onClick={handleGetRandom}
+                className="px-6 py-3 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition-colors"
               >
-                <div className="flex justify-between items-start">
-                  <div className="flex items-start gap-3 flex-1 min-w-0">
-                    <span className="text-lg font-bold text-gray-400 flex-shrink-0">
-                      #{index + 1}
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <span className="font-semibold text-gray-900 block">
-                        {word.text}
+                Find a Word to Claim
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {mostExpensive.map((word, index) => (
+                <Link
+                  key={word.id}
+                  href={`/word/${word.text}`}
+                  className="block p-3 hover:bg-gray-50 rounded-lg transition-colors"
+                >
+                  <div className="flex justify-between items-start">
+                    <div className="flex items-start gap-3 flex-1 min-w-0">
+                      <span className="text-lg font-bold text-gray-400 flex-shrink-0">
+                        #{index + 1}
                       </span>
-                      {!word.is_available && word.owner_name && (
-                        <p className="text-sm text-gray-500 mt-1">
-                          🔒 {word.owner_name}
-                        </p>
-                      )}
-                      {word.owner_message && (
-                        <p className="text-sm text-gray-600 italic mt-1 truncate">
-                          &quot;{word.owner_message}&quot;
-                        </p>
-                      )}
+                      <div className="flex-1 min-w-0">
+                        <span className="font-semibold text-gray-900 block">
+                          {word.text}
+                        </span>
+                        {!word.is_available && word.owner_name && (
+                          <p className="text-sm text-gray-500 mt-1">
+                            🔒 {word.owner_name}
+                          </p>
+                        )}
+                        {word.owner_message && (
+                          <p className="text-sm text-gray-600 italic mt-1 truncate">
+                            &quot;{word.owner_message}&quot;
+                          </p>
+                        )}
+                      </div>
                     </div>
+                    <span className="text-blue-600 font-bold flex-shrink-0 ml-3">
+                      ${word.price}
+                    </span>
                   </div>
-                  <span className="text-blue-600 font-bold flex-shrink-0 ml-3">
-                    ${word.price}
-                  </span>
-                </div>
-              </Link>
-            ))}
-          </div>
+                </Link>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Recent Purchases */}
@@ -156,26 +173,37 @@ export default function Home() {
           <h3 className="text-2xl font-bold text-gray-900 mb-4">
             🔥 Recent Purchases
           </h3>
-          <div className="space-y-3">
-            {recentPurchases.map((transaction) => (
-              <div
-                key={transaction.id}
-                className="p-3 hover:bg-gray-50 rounded-lg transition-colors"
-              >
-                <div className="flex justify-between items-center">
-                  <span className="font-semibold text-gray-900">
-                    {transaction.buyer_name}
-                  </span>
-                  <span className="text-green-600 font-bold">
-                    ${transaction.price_paid}
-                  </span>
+          {recentPurchases.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-gray-500 mb-4">
+                No purchases yet.
+              </p>
+              <p className="text-lg font-semibold text-green-600">
+                Start the action! Claim your first word.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {recentPurchases.map((transaction) => (
+                <div
+                  key={transaction.id}
+                  className="p-3 hover:bg-gray-50 rounded-lg transition-colors"
+                >
+                  <div className="flex justify-between items-center">
+                    <span className="font-semibold text-gray-900">
+                      {transaction.buyer_name}
+                    </span>
+                    <span className="text-green-600 font-bold">
+                      ${transaction.price_paid}
+                    </span>
+                  </div>
+                  <p className="text-sm text-gray-500 mt-1">
+                    {new Date(transaction.timestamp).toLocaleString()}
+                  </p>
                 </div>
-                <p className="text-sm text-gray-500 mt-1">
-                  {new Date(transaction.timestamp).toLocaleString()}
-                </p>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -56,6 +56,26 @@ export interface ResetWordData {
   owner_message?: string;
 }
 
+export interface ReportedMessage {
+  word_id: number;
+  word_text: string;
+  owner_name: string | null;
+  owner_message: string | null;
+  report_count: number;
+  moderation_status: string | null;
+  moderated_at: string | null;
+  updated_at: string;
+  lockout_ends_at: string | null;
+}
+
+export interface ReportedMessagesResponse {
+  messages: ReportedMessage[];
+  total: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
+}
+
 /**
  * Store/retrieve admin token in session storage.
  */
@@ -182,6 +202,23 @@ export async function resetWord(data: ResetWordData): Promise<any> {
   return adminRequest('/api/admin/reset-word', {
     method: 'POST',
     body: JSON.stringify(data),
+  });
+}
+
+/**
+ * Get reported messages with pagination.
+ */
+export async function getReportedMessages(page: number = 1, pageSize: number = 20): Promise<ReportedMessagesResponse> {
+  return adminRequest<ReportedMessagesResponse>(`/api/admin/reported-messages?page=${page}&page_size=${pageSize}`);
+}
+
+/**
+ * Moderate a reported message (approve, reject, or protect).
+ */
+export async function moderateMessage(wordId: number, action: 'approve' | 'reject' | 'protect'): Promise<any> {
+  return adminRequest('/api/admin/moderate-message', {
+    method: 'POST',
+    body: JSON.stringify({ word_id: wordId, action }),
   });
 }
 

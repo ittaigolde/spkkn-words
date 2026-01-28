@@ -124,6 +124,12 @@ export default function AdminDashboardPage() {
             <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
             <div className="flex gap-3">
               <button
+                onClick={() => router.push("/admin/abuse")}
+                className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700"
+              >
+                Content Moderation
+              </button>
+              <button
                 onClick={() => setShowResetModal(true)}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
               >

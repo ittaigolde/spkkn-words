@@ -5,12 +5,13 @@ from datetime import datetime, timezone
 from fastapi_cache.decorator import cache
 
 from ..database import get_db
-from ..models import Word, Transaction
+from ..models import Word, Transaction, MessageReport
 from ..schemas import WordResponse, TransactionResponse
 from ..utils import is_word_available
 from ..cache import CACHE_TTL_LEADERBOARD, CACHE_TTL_STATS
 from ..ratelimit import limiter
 from ..rate_config import RateLimits
+from ..services import filter_message_for_moderation
 
 router = APIRouter(prefix="/api/leaderboard", tags=["leaderboard"])
 
@@ -24,29 +25,46 @@ async def get_most_expensive(
     db: Session = Depends(get_db)
 ):
     """
-    Get the most expensive words.
+    Get the most expensive words that have been purchased.
 
-    Returns the top N words by current price, regardless of availability.
+    Returns the top N words by current price that have owners.
 
     Args:
         limit: Maximum number of words to return (default: 10)
     """
-    words = db.query(Word).order_by(desc(Word.price)).limit(limit).all()
+    # Only get words that have been bought (price > $1.00)
+    # Words start at $1.00, after first purchase they become $2.00
+    words = db.query(Word).filter(
+        Word.price > 1.00
+    ).order_by(desc(Word.price)).limit(limit).all()
 
-    return [
-        WordResponse(
+    result = []
+    for word in words:
+        # Get report count
+        report_count = db.query(MessageReport).filter(MessageReport.word_id == word.id).count()
+
+        # Filter message based on moderation status
+        filtered_message = filter_message_for_moderation(
+            word.owner_message,
+            word.moderation_status,
+            report_count
+        )
+
+        result.append(WordResponse(
             id=word.id,
             text=word.text,
             price=word.price,
             owner_name=word.owner_name,
-            owner_message=word.owner_message,
+            owner_message=filtered_message,
             lockout_ends_at=word.lockout_ends_at,
             is_available=is_word_available(word.lockout_ends_at),
             created_at=word.created_at,
-            updated_at=word.updated_at
-        )
-        for word in words
-    ]
+            updated_at=word.updated_at,
+            moderation_status=word.moderation_status,
+            report_count=report_count
+        ))
+
+    return result
 
 
 @router.get("/recent", response_model=list[TransactionResponse])

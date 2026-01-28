@@ -32,6 +32,9 @@ class Settings(BaseSettings):
     # Admin setup page enabled (set to False in production)
     admin_setup_enabled: bool = True
 
+    # Moderation
+    report_threshold: int = 10
+
     class Config:
         env_file = ".env"
         case_sensitive = False

@@ -14,12 +14,18 @@ settings = get_settings()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup and shutdown events."""
-    # Startup: Initialize cache
-    await init_cache()
-    print("✓ Cache initialized")
-    yield
-    # Shutdown: cleanup if needed
-    print("✓ Shutting down")
+    try:
+        # Startup: Initialize cache
+        await init_cache()
+        print("Cache initialized")
+        print("Server is ready")
+        yield
+    except Exception as e:
+        print(f"Error during startup: {e}")
+        raise
+    finally:
+        # Shutdown: cleanup if needed
+        print("Shutting down")
 
 
 app = FastAPI(
