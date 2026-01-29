@@ -6,3 +6,36 @@ dockerfilePath = "backend/Dockerfile"
 startCommand = "/app/start.sh"
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 10
+
+[[deploy.environmentVariables]]
+name = "DATABASE_URL"
+
+[[deploy.environmentVariables]]
+name = "APP_ENV"
+
+[[deploy.environmentVariables]]
+name = "DEBUG"
+
+[[deploy.environmentVariables]]
+name = "STRIPE_SECRET_KEY"
+
+[[deploy.environmentVariables]]
+name = "STRIPE_PUBLISHABLE_KEY"
+
+[[deploy.environmentVariables]]
+name = "CORS_ORIGINS"
+
+[[deploy.environmentVariables]]
+name = "ADMIN_TOTP_SECRET"
+
+[[deploy.environmentVariables]]
+name = "ADMIN_SETUP_ENABLED"
+
+[[deploy.environmentVariables]]
+name = "REPORT_THRESHOLD"
+
+[[deploy.environmentVariables]]
+name = "RATE_LIMIT_ENABLED"
+
+[[deploy.environmentVariables]]
+name = "RUN_INIT"
