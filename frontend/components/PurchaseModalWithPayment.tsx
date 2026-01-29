@@ -10,6 +10,7 @@ import axios from "axios";
 const stripeKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || "";
 const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
 console.log("Stripe publishable key loaded:", stripeKey ? `${stripeKey.substring(0, 20)}...` : "MISSING");
+console.log("Demo mode:", process.env.NEXT_PUBLIC_DEMO_MODE, "isDemoMode:", isDemoMode);
 const stripePromise = loadStripe(stripeKey);
 
 interface PurchaseModalProps {
