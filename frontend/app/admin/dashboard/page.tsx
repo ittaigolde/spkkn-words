@@ -160,7 +160,7 @@ export default function AdminDashboardPage() {
           </div>
 
           <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-sm font-medium text-gray-500 mb-2">Today's Income</h3>
+            <h3 className="text-sm font-medium text-gray-500 mb-2">Today&apos;s Income</h3>
             <p className="text-3xl font-bold text-green-600">
               ${dashboard.income.today_income.toFixed(2)}
             </p>
@@ -170,7 +170,7 @@ export default function AdminDashboardPage() {
           </div>
 
           <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-sm font-medium text-gray-500 mb-2">This Week's Income</h3>
+            <h3 className="text-sm font-medium text-gray-500 mb-2">This Week&apos;s Income</h3>
             <p className="text-3xl font-bold text-blue-600">
               ${dashboard.income.week_income.toFixed(2)}
             </p>
@@ -353,7 +353,7 @@ export default function AdminDashboardPage() {
 
                 <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
                   <p className="text-xs text-yellow-800">
-                    ⚠️ This will create an admin transaction that won't count towards revenue stats.
+                    ⚠️ This will create an admin transaction that won&apos;t count towards revenue stats.
                   </p>
                 </div>
               </div>
