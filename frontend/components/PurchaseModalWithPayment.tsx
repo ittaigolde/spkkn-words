@@ -8,6 +8,7 @@ import axios from "axios";
 
 // Load Stripe
 const stripeKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || "";
+const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
 console.log("Stripe publishable key loaded:", stripeKey ? `${stripeKey.substring(0, 20)}...` : "MISSING");
 const stripePromise = loadStripe(stripeKey);
 
@@ -326,7 +327,8 @@ export default function PurchaseModalWithPayment({
         )}
 
         <p className="text-xs text-gray-500 text-center mt-4">
-          Powered by Stripe. Test with card: 4242 4242 4242 4242
+          Powered by Stripe
+          {isDemoMode && ". Test with card: 4242 4242 4242 4242"}
         </p>
       </div>
     </div>
