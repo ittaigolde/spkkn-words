@@ -7,6 +7,8 @@ PORT=${PORT:-8000}
 echo "Starting server on port $PORT..."
 echo "DEBUG: DATABASE_URL is set: ${DATABASE_URL:0:30}..."
 echo "DEBUG: APP_ENV=$APP_ENV"
+echo "DEBUG: STRIPE_SECRET_KEY starts with: ${STRIPE_SECRET_KEY:0:10}..."
+echo "DEBUG: STRIPE_PUBLISHABLE_KEY starts with: ${STRIPE_PUBLISHABLE_KEY:0:10}..."
 
 # Run database initialization if needed
 if [ "$RUN_INIT" = "true" ]; then
