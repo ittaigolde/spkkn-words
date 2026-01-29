@@ -3,7 +3,8 @@ from decimal import Decimal
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
 from fastapi import HTTPException
-from detoxify import Detoxify
+# Detoxify temporarily disabled for Railway free tier (reduces image size)
+# from detoxify import Detoxify
 from better_profanity import profanity
 
 from .models import Word, Transaction, MessageReport
@@ -48,10 +49,13 @@ _detoxify_model = None
 
 def get_detoxify_model():
     """Lazy load the detoxify model to avoid loading it on import."""
-    global _detoxify_model
-    if _detoxify_model is None:
-        _detoxify_model = Detoxify('original')
-    return _detoxify_model
+    # Detoxify disabled for demo deployment to reduce Docker image size
+    return None
+    # global _detoxify_model
+    # if _detoxify_model is None:
+    #     from detoxify import Detoxify
+    #     _detoxify_model = Detoxify('original')
+    # return _detoxify_model
 
 
 class WordService:
@@ -218,28 +222,29 @@ class WordService:
                     detail="Word must contain only English letters (no foreign characters or emojis)"
                 )
 
-            # Check for toxicity/hate speech using detoxify
+            # Check for toxicity/hate speech using detoxify (disabled for demo)
             try:
                 model = get_detoxify_model()
-                results = model.predict(word_text)
+                if model:  # Only run if detoxify is available
+                    results = model.predict(word_text)
 
-                # Check toxicity scores (threshold: 0.7)
-                # Available scores: toxicity, severe_toxicity, obscene, threat, insult, identity_attack
-                if results['toxicity'] > 0.7:
-                    raise HTTPException(
-                        status_code=400,
-                        detail="This word contains inappropriate or toxic content"
-                    )
-                if results['identity_attack'] > 0.7 or results['threat'] > 0.7:
-                    raise HTTPException(
-                        status_code=400,
-                        detail="This word contains hate speech or threatening content"
-                    )
-                if results['insult'] > 0.7 or results['obscene'] > 0.7:
-                    raise HTTPException(
-                        status_code=400,
-                        detail="This word contains offensive content"
-                    )
+                    # Check toxicity scores (threshold: 0.7)
+                    # Available scores: toxicity, severe_toxicity, obscene, threat, insult, identity_attack
+                    if results['toxicity'] > 0.7:
+                        raise HTTPException(
+                            status_code=400,
+                            detail="This word contains inappropriate or toxic content"
+                        )
+                    if results['identity_attack'] > 0.7 or results['threat'] > 0.7:
+                        raise HTTPException(
+                            status_code=400,
+                            detail="This word contains hate speech or threatening content"
+                        )
+                    if results['insult'] > 0.7 or results['obscene'] > 0.7:
+                        raise HTTPException(
+                            status_code=400,
+                            detail="This word contains offensive content"
+                        )
             except HTTPException:
                 raise
             except Exception as e:
@@ -336,20 +341,21 @@ class WordService:
         if profanity.contains_profanity(text):
             return False, "Profanity is not allowed"
 
-        # Check for toxicity using detoxify (for messages)
+        # Check for toxicity using detoxify (disabled for demo)
         try:
             model = get_detoxify_model()
-            results = model.predict(text)
+            if model:  # Only run if detoxify is available
+                results = model.predict(text)
 
-            # Use stricter thresholds for user messages (0.8)
-            if results['toxicity'] > 0.8:
-                return False, "Content contains inappropriate or toxic language"
-            if results['identity_attack'] > 0.8:
-                return False, "Content contains hate speech or discriminatory language"
-            if results['threat'] > 0.8:
-                return False, "Content contains threatening language"
-            if results['insult'] > 0.8 or results['severe_toxicity'] > 0.8:
-                return False, "Content contains offensive or abusive language"
+                # Use stricter thresholds for user messages (0.8)
+                if results['toxicity'] > 0.8:
+                    return False, "Content contains inappropriate or toxic language"
+                if results['identity_attack'] > 0.8:
+                    return False, "Content contains hate speech or discriminatory language"
+                if results['threat'] > 0.8:
+                    return False, "Content contains threatening language"
+                if results['insult'] > 0.8 or results['severe_toxicity'] > 0.8:
+                    return False, "Content contains offensive or abusive language"
         except Exception as e:
             # If detoxify fails, log but don't block (fail open)
             print(f"Warning: Detoxify check failed for message: {e}")
