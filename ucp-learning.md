@@ -167,3 +167,70 @@ Built product feed infrastructure with two endpoints:
 3. (Optional) Generate custom word card images
 4. Set up automatic feed updates/refresh
 
+
+---
+
+**2026-01-29 - Product Feed Testing & Validation:**
+
+**Feed Endpoints Available:**
+1. JSON Feed: `https://spkkn.com/api/product-feed/google-merchant`
+2. XML/RSS Feed: `https://spkkn.com/api/product-feed/google-merchant/rss`
+3. Word Images: `https://spkkn.com/api/product-feed/word-image/{word}`
+
+**Product Descriptions:**
+- **Unpurchased words**: "Own the word '{WORD}' in The Word Registry. Claim ownership, attach your message, and be part of an interactive word ownership game. Currently unclaimed - be the first owner!"
+- **Purchased words**: "Own the word '{WORD}' in The Word Registry. Claim ownership, attach your message, and be part of an interactive word ownership game. Currently owned by {owner_name}."
+
+**Availability Logic:**
+- Words in lockout period → `availability: "out_of_stock"` 
+- Words available for purchase → `availability: "in_stock"`
+- Uses `is_word_available()` function to check if lockout has expired
+
+**Custom Labels for Filtering:**
+- `custom_label_0`: "available" or "locked" (availability status)
+- `custom_label_1`: "price_tier_{N}" (price tier for filtering, e.g., "price_tier_2")
+- `custom_label_2`: "owned" or "unclaimed" (ownership status)
+
+**Product Data Structure:**
+Each product includes:
+- `id`: Word database ID
+- `title`: "Word: {WORD}" (uppercase)
+- `description`: Dynamic based on ownership status
+- `link`: Direct link to word page (e.g., https://spkkn.com/word/love)
+- `image_link`: Currently placeholder, will be custom word cards
+- `price`: Current price in USD (dynamic, changes with purchases)
+- `availability`: in_stock or out_of_stock (based on lockout)
+- `condition`: "new" (always new for digital products)
+- `brand`: "The Word Registry"
+- `google_product_category`: "Software > Computer Software > Educational Software"
+- `product_type`: "Digital Goods > Word Ownership"
+- `identifier_exists`: "false" (no GTIN/MPN for unique digital items)
+- `item_group_id`: "words" (groups all words together)
+
+**Testing Results:**
+- ✅ Feed successfully returns all products
+- ✅ Dynamic pricing reflects current word prices
+- ✅ Availability correctly shows locked vs available words
+- ✅ Ownership status properly reflected in descriptions
+- ✅ Custom labels allow filtering by status, price, ownership
+- ⏳ Images currently use placeholders (via.placeholder.com)
+
+**Feed Performance:**
+- 20,000 products in registry
+- Feed responds in ~2-3 seconds for full inventory
+- Supports `?limit=N` parameter for testing subsets
+
+**Health Check Enhancement:**
+- Added `git_commit` field to `/health` endpoint
+- Shows short commit hash (e.g., "2676217")
+- Helps verify which version is deployed
+- Example: `{"status":"healthy","environment":"production","git_commit":"2676217","version":"1.0.0"}`
+
+**Next Steps:**
+1. Set up Google Merchant Center account
+2. Verify and claim spkkn.com domain
+3. Submit product feed URL to Google Merchant Center
+4. (Optional) Generate custom word card images instead of placeholders
+5. Monitor feed for errors in Google Merchant Center dashboard
+6. Integrate with ucp.dev for AI agent checkout
+
