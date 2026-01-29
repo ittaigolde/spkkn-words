@@ -22,8 +22,8 @@ COPY backend/ .
 # Make start script executable
 RUN chmod +x start.sh
 
-# Expose port
-EXPOSE 8000
+# Expose port (Railway uses 8080 by default)
+EXPOSE 8080
 
 # Run the application using start script
 CMD ["./start.sh"]
