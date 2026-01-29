@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import Header from "@/components/Header";
 import CookieBanner from "@/components/CookieBanner";
+import DemoBanner from "@/components/DemoBanner";
 
 export const metadata: Metadata = {
   title: "The Word Registry",
@@ -16,6 +17,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="antialiased min-h-screen bg-gray-50">
+        <DemoBanner />
         <Header />
         <main>{children}</main>
         <footer className="bg-white border-t border-gray-200 mt-12">

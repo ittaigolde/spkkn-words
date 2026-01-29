@@ -1,615 +1,263 @@
-# DigitalOcean Droplet Deployment Guide
+# Deployment Guide - Word Registry
 
-This guide walks through deploying The Word Registry to a DigitalOcean droplet with Nginx reverse proxy for zero-downtime deployments.
+This guide covers deploying the Word Registry application to production using Vercel (frontend) and Railway (backend).
+
+## Overview
+
+- **Frontend**: Next.js app hosted on Vercel
+- **Backend**: FastAPI app + PostgreSQL database hosted on Railway
+- **Mode**: Demo mode with Stripe test keys for verification
 
 ## Prerequisites
 
-- DigitalOcean account
-- Domain name pointed to your droplet's IP
-- Stripe account (test or live keys)
-- SSH access to your droplet
+- GitHub account
+- Vercel account (sign up at vercel.com)
+- Railway account (sign up at railway.app)
+- Stripe test API keys
 
-## Droplet Requirements
+---
 
-**Recommended Specs:**
-- **Droplet Size:** Basic Droplet ($12/month or higher)
-  - 2 GB RAM / 1 CPU (minimum)
-  - 4 GB RAM / 2 CPUs (recommended)
-- **OS:** Ubuntu 22.04 LTS
-- **Region:** Choose closest to your users
+## Part 1: Deploy Backend to Railway
 
-## Initial Server Setup
+### Step 1: Create Railway Project
 
-### 1. Create and Access Droplet
+1. Go to [railway.app](https://railway.app) and sign in
+2. Click **"New Project"**
+3. Select **"Deploy from GitHub repo"**
+4. Connect your GitHub account and select this repository
+5. Railway will detect the Dockerfile automatically
 
-```bash
-# SSH into your droplet
-ssh root@your_droplet_ip
-```
+### Step 2: Add PostgreSQL Database
 
-### 2. Create Non-Root User
+1. In your Railway project, click **"New"** → **"Database"** → **"PostgreSQL"**
+2. Railway will automatically create a database and set `DATABASE_URL` environment variable
 
-```bash
-# Create user
-adduser wordregistry
-usermod -aG sudo wordregistry
+### Step 3: Configure Environment Variables
 
-# Set up SSH for new user
-rsync --archive --chown=wordregistry:wordregistry ~/.ssh /home/wordregistry
-
-# Switch to new user
-su - wordregistry
-```
-
-### 3. Update System
+In Railway project settings → Variables tab, add these variables:
 
 ```bash
-sudo apt update
-sudo apt upgrade -y
-```
+# Stripe (use test keys for demo)
+STRIPE_SECRET_KEY=sk_test_...
+STRIPE_PUBLISHABLE_KEY=pk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_... (optional for demo)
 
-## Install Dependencies
+# Application
+APP_ENV=production
+DEBUG=False
 
-### 1. Install Python 3.13
+# CORS - Add your Vercel domain after deployment
+CORS_ORIGINS=https://your-app.vercel.app
 
-```bash
-# Add deadsnakes PPA
-sudo apt install software-properties-common -y
-sudo add-apt-repository ppa:deadsnakes/ppa -y
-sudo apt update
+# Admin
+ADMIN_TOTP_SECRET=your_totp_secret_here
+ADMIN_SETUP_ENABLED=False
 
-# Install Python 3.13
-sudo apt install python3.13 python3.13-venv python3.13-dev -y
-
-# Verify installation
-python3.13 --version
-```
-
-### 2. Install Node.js 20
-
-```bash
-# Install Node.js via NodeSource
-curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-sudo apt install nodejs -y
-
-# Verify installation
-node --version
-npm --version
-```
-
-### 3. Install PostgreSQL
-
-```bash
-# Install PostgreSQL
-sudo apt install postgresql postgresql-contrib -y
-
-# Start and enable PostgreSQL
-sudo systemctl start postgresql
-sudo systemctl enable postgresql
-
-# Verify installation
-sudo -u postgres psql --version
-```
-
-### 4. Install Nginx
-
-```bash
-# Install Nginx
-sudo apt install nginx -y
-
-# Start and enable Nginx
-sudo systemctl start nginx
-sudo systemctl enable nginx
-
-# Verify installation
-sudo systemctl status nginx
-```
-
-### 5. Install Git
-
-```bash
-sudo apt install git -y
-```
-
-## Database Setup
-
-### 1. Create Database and User
-
-```bash
-# Switch to postgres user
-sudo -u postgres psql
-
-# In PostgreSQL shell:
-CREATE DATABASE word_registry;
-CREATE USER wordregistry_user WITH PASSWORD 'your_secure_password_here';
-GRANT ALL PRIVILEGES ON DATABASE word_registry TO wordregistry_user;
-\q
-```
-
-### 2. Configure PostgreSQL for Local Access
-
-```bash
-# Edit pg_hba.conf
-sudo nano /etc/postgresql/*/main/pg_hba.conf
-
-# Add this line (if not already present):
-# local   all             all                                     md5
-
-# Restart PostgreSQL
-sudo systemctl restart postgresql
-```
-
-## Application Setup
-
-### 1. Clone Repository
-
-```bash
-# Create app directory
-sudo mkdir -p /var/www/word-registry
-sudo chown wordregistry:wordregistry /var/www/word-registry
-
-# Clone repository
-cd /var/www/word-registry
-git clone https://github.com/yourusername/word-registry.git .
-```
-
-### 2. Backend Setup
-
-```bash
-cd /var/www/word-registry/backend
-
-# Create virtual environment
-python3.13 -m venv venv
-
-# Activate virtual environment
-source venv/bin/activate
-
-# Install dependencies
-pip install --upgrade pip
-pip install -r requirements.txt
-
-# Create production .env file
-nano .env
-```
-
-**Backend `.env` configuration:**
-```env
-# Database
-DATABASE_URL=postgresql://wordregistry_user:your_secure_password_here@localhost:5432/word_registry
-
-# Stripe (use live keys for production)
-STRIPE_SECRET_KEY=sk_live_...
-STRIPE_PUBLISHABLE_KEY=pk_live_...
-STRIPE_WEBHOOK_SECRET=whsec_...
-
-# Rate Limiting
+# Moderation
+REPORT_THRESHOLD=10
 RATE_LIMIT_ENABLED=True
-REDIS_URL=  # Leave empty for in-memory (or add Redis later)
-
-# Environment
-ENVIRONMENT=production
 ```
 
-### 3. Initialize Database
+### Step 4: Initialize Database
+
+1. Wait for the backend to deploy
+2. In Railway, open the backend service
+3. Click **"Settings"** → **"Service"** → **"Custom Start Command"**
+4. Temporarily change to: `python init_db.py && python migrate_add_moderation.py && uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+5. This will create tables on first deploy
+6. After successful deploy, revert to default command or use: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+
+### Step 5: Import Words (Optional)
+
+To import the 20k word list:
+
+1. In Railway, click on your backend service
+2. Go to **"Settings"** → **"Variables"**
+3. Note your `DATABASE_URL`
+4. Locally, run:
+   ```bash
+   cd backend
+   # Set DATABASE_URL to your Railway PostgreSQL URL
+   ./venv/Scripts/python.exe import_words.py
+   ```
+
+### Step 6: Note Your Backend URL
+
+- Railway will provide a URL like: `https://your-app-name.railway.app`
+- Copy this URL for the frontend configuration
+
+---
+
+## Part 2: Deploy Frontend to Vercel
+
+### Step 1: Create Vercel Project
+
+1. Go to [vercel.com](https://vercel.com) and sign in
+2. Click **"Add New..."** → **"Project"**
+3. Import your GitHub repository
+4. Vercel will detect it's a Next.js app
+5. Set **Root Directory** to `frontend`
+
+### Step 2: Configure Environment Variables
+
+In Vercel project settings → Environment Variables, add:
 
 ```bash
-# Still in backend/ with venv activated
-python init_db.py
-python import_words.py
-python verify_import.py
+# Backend API URL (from Railway)
+NEXT_PUBLIC_API_URL=https://your-backend-url.railway.app
+
+# Stripe Publishable Key (test key)
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_...
 ```
 
-### 4. Test Backend
+### Step 3: Deploy
 
+1. Click **"Deploy"**
+2. Wait for build to complete (3-5 minutes)
+3. Note your frontend URL: `https://your-app.vercel.app`
+
+### Step 4: Update Backend CORS
+
+1. Go back to Railway
+2. Update the `CORS_ORIGINS` environment variable to include your Vercel URL:
+   ```
+   CORS_ORIGINS=https://your-app.vercel.app
+   ```
+3. Railway will automatically redeploy
+
+---
+
+## Part 3: Configure Stripe Webhook (Optional for Demo)
+
+For full functionality in demo mode:
+
+1. In Stripe Dashboard → **Developers** → **Webhooks**
+2. Click **"Add endpoint"**
+3. Set endpoint URL: `https://your-backend-url.railway.app/api/payment/webhook`
+4. Select events: `payment_intent.succeeded`, `payment_intent.payment_failed`
+5. Copy the webhook signing secret
+6. Add to Railway environment variables as `STRIPE_WEBHOOK_SECRET`
+
+---
+
+## Part 4: Setup Admin Access
+
+### First-Time Admin Setup
+
+1. **Temporarily enable setup page**: Set `ADMIN_SETUP_ENABLED=True` in Railway
+2. Visit: `https://your-app.vercel.app/admin/setup`
+3. Scan QR code with Google Authenticator or Authy
+4. Save the secret key securely
+5. **IMPORTANT**: Set `ADMIN_SETUP_ENABLED=False` in Railway immediately after setup
+
+### Admin Login
+
+1. Visit: `https://your-app.vercel.app/admin/login`
+2. Enter 6-digit code from authenticator app
+3. Access dashboard and content moderation
+
+---
+
+## Part 5: Verification Checklist
+
+Before submitting to Stripe for review:
+
+### Required Pages
+- ✅ Home page with clear explanation
+- ✅ Word purchase flow working
+- ✅ Test payments with Stripe test cards
+- ✅ Lockout timer displaying correctly
+- ✅ Leaderboards showing data
+
+### Optional (Recommended for Stripe)
+- [ ] Terms of Service page
+- [ ] Privacy Policy page
+- [ ] Contact/Support information
+- [ ] Refund policy (if applicable)
+- [ ] Demo mode banner
+
+### Testing Checklist
+- [ ] Buy a word with test card (4242 4242 4242 4242)
+- [ ] Verify lockout timer counts down
+- [ ] Steal a word after timer expires
+- [ ] Test message reporting
+- [ ] Test admin moderation panel
+- [ ] Verify leaderboards update
+
+---
+
+## Environment Variables Quick Reference
+
+### Backend (Railway)
 ```bash
-# Test that backend runs
-uvicorn app.main:app --host 0.0.0.0 --port 8000
-
-# In another terminal, test:
-curl http://localhost:8000/health
-
-# Stop test server (Ctrl+C)
+DATABASE_URL=<auto-generated>
+STRIPE_SECRET_KEY=sk_test_...
+STRIPE_PUBLISHABLE_KEY=pk_test_...
+APP_ENV=production
+DEBUG=False
+CORS_ORIGINS=https://your-app.vercel.app
+ADMIN_TOTP_SECRET=...
+ADMIN_SETUP_ENABLED=False
+REPORT_THRESHOLD=10
+RATE_LIMIT_ENABLED=True
 ```
 
-### 5. Frontend Setup
-
+### Frontend (Vercel)
 ```bash
-cd /var/www/word-registry/frontend
-
-# Install dependencies
-npm install
-
-# Create production .env.local
-nano .env.local
+NEXT_PUBLIC_API_URL=https://your-backend-url.railway.app
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_...
 ```
 
-**Frontend `.env.local` configuration:**
-```env
-NEXT_PUBLIC_API_URL=https://yourdomain.com/api
-NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_live_...
-```
-
-### 6. Build Frontend
-
-```bash
-# Build for production
-npm run build
-
-# Test build
-npm run start
-
-# Stop test server (Ctrl+C)
-```
-
-## Systemd Service Setup
-
-### 1. Create Backend Service
-
-```bash
-sudo nano /etc/systemd/system/word-registry-backend.service
-```
-
-**Service file contents:**
-```ini
-[Unit]
-Description=Word Registry Backend API
-After=network.target postgresql.service
-
-[Service]
-Type=simple
-User=wordregistry
-WorkingDirectory=/var/www/word-registry/backend
-Environment="PATH=/var/www/word-registry/backend/venv/bin"
-ExecStart=/var/www/word-registry/backend/venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 2
-Restart=always
-RestartSec=10
-
-[Install]
-WantedBy=multi-user.target
-```
-
-### 2. Create Frontend Service
-
-```bash
-sudo nano /etc/systemd/system/word-registry-frontend.service
-```
-
-**Service file contents:**
-```ini
-[Unit]
-Description=Word Registry Frontend
-After=network.target
-
-[Service]
-Type=simple
-User=wordregistry
-WorkingDirectory=/var/www/word-registry/frontend
-Environment="PATH=/usr/bin:/usr/local/bin"
-Environment="NODE_ENV=production"
-ExecStart=/usr/bin/npm run start
-Restart=always
-RestartSec=10
-
-[Install]
-WantedBy=multi-user.target
-```
-
-### 3. Enable and Start Services
-
-```bash
-# Reload systemd
-sudo systemctl daemon-reload
-
-# Enable services (start on boot)
-sudo systemctl enable word-registry-backend
-sudo systemctl enable word-registry-frontend
-
-# Start services
-sudo systemctl start word-registry-backend
-sudo systemctl start word-registry-frontend
-
-# Check status
-sudo systemctl status word-registry-backend
-sudo systemctl status word-registry-frontend
-```
-
-## Nginx Configuration
-
-### 1. Create Nginx Config
-
-```bash
-sudo nano /etc/nginx/sites-available/word-registry
-```
-
-**Nginx configuration (see `nginx.conf` file for complete config)**
-
-### 2. Enable Site
-
-```bash
-# Create symbolic link
-sudo ln -s /etc/nginx/sites-available/word-registry /etc/nginx/sites-enabled/
-
-# Remove default site
-sudo rm /etc/nginx/sites-enabled/default
-
-# Test configuration
-sudo nginx -t
-
-# Reload Nginx
-sudo systemctl reload nginx
-```
-
-## SSL/HTTPS Setup with Let's Encrypt
-
-### 1. Install Certbot
-
-```bash
-sudo apt install certbot python3-certbot-nginx -y
-```
-
-### 2. Obtain SSL Certificate
-
-```bash
-# Replace with your domain
-sudo certbot --nginx -d yourdomain.com -d www.yourdomain.com
-
-# Follow prompts:
-# - Enter email address
-# - Agree to terms
-# - Choose redirect HTTP to HTTPS (option 2)
-```
-
-### 3. Test Auto-Renewal
-
-```bash
-sudo certbot renew --dry-run
-```
-
-## Stripe Webhook Configuration
-
-### 1. Configure Webhook Endpoint
-
-1. Go to https://dashboard.stripe.com/webhooks
-2. Click "Add endpoint"
-3. Enter URL: `https://yourdomain.com/api/payment/webhook`
-4. Select events:
-   - `payment_intent.succeeded`
-   - `payment_intent.payment_failed`
-5. Copy webhook signing secret
-
-### 2. Update Backend .env
-
-```bash
-sudo nano /var/www/word-registry/backend/.env
-
-# Add webhook secret:
-STRIPE_WEBHOOK_SECRET=whsec_your_secret_here
-
-# Restart backend
-sudo systemctl restart word-registry-backend
-```
-
-## Deployment Updates (Zero Downtime)
-
-### 1. Create Update Script
-
-```bash
-nano /var/www/word-registry/deploy.sh
-```
-
-**See `deploy.sh` for complete script**
-
-### 2. Make Executable
-
-```bash
-chmod +x /var/www/word-registry/deploy.sh
-```
-
-### 3. Run Deployment
-
-```bash
-cd /var/www/word-registry
-./deploy.sh
-```
-
-## Monitoring and Logs
-
-### View Logs
-
-```bash
-# Backend logs
-sudo journalctl -u word-registry-backend -f
-
-# Frontend logs
-sudo journalctl -u word-registry-frontend -f
-
-# Nginx access logs
-sudo tail -f /var/log/nginx/access.log
-
-# Nginx error logs
-sudo tail -f /var/log/nginx/error.log
-```
-
-### Check Service Status
-
-```bash
-sudo systemctl status word-registry-backend
-sudo systemctl status word-registry-frontend
-sudo systemctl status nginx
-sudo systemctl status postgresql
-```
-
-## Firewall Setup
-
-```bash
-# Enable UFW
-sudo ufw enable
-
-# Allow SSH
-sudo ufw allow OpenSSH
-
-# Allow HTTP and HTTPS
-sudo ufw allow 'Nginx Full'
-
-# Check status
-sudo ufw status
-```
-
-## Database Backups
-
-### 1. Create Backup Script
-
-```bash
-sudo nano /usr/local/bin/backup-word-registry.sh
-```
-
-**Backup script:**
-```bash
-#!/bin/bash
-BACKUP_DIR="/var/backups/word-registry"
-DATE=$(date +%Y%m%d_%H%M%S)
-mkdir -p $BACKUP_DIR
-
-# Backup database
-sudo -u postgres pg_dump word_registry | gzip > $BACKUP_DIR/word_registry_$DATE.sql.gz
-
-# Keep only last 7 days
-find $BACKUP_DIR -name "*.sql.gz" -mtime +7 -delete
-
-echo "Backup completed: $BACKUP_DIR/word_registry_$DATE.sql.gz"
-```
-
-### 2. Make Executable and Schedule
-
-```bash
-sudo chmod +x /usr/local/bin/backup-word-registry.sh
-
-# Add to crontab (daily at 2am)
-sudo crontab -e
-
-# Add this line:
-0 2 * * * /usr/local/bin/backup-word-registry.sh >> /var/log/word-registry-backup.log 2>&1
-```
-
-## Production Checklist
-
-Before going live:
-
-- [ ] Domain DNS pointed to droplet IP
-- [ ] SSL certificate installed and working
-- [ ] Stripe live keys configured
-- [ ] Stripe webhook endpoint configured
-- [ ] Database backups scheduled
-- [ ] Firewall enabled and configured
-- [ ] Services set to start on boot
-- [ ] CORS configured for production domain
-- [ ] Environment variables set to production
-- [ ] Test complete purchase flow with real card
-- [ ] Monitoring setup (optional: DigitalOcean monitoring, Sentry, etc.)
+---
 
 ## Troubleshooting
 
 ### Backend won't start
+- Check Railway logs for errors
+- Verify DATABASE_URL is set
+- Ensure all required env vars are present
 
-```bash
-# Check logs
-sudo journalctl -u word-registry-backend -n 50
+### Frontend can't connect to backend
+- Verify NEXT_PUBLIC_API_URL is correct
+- Check CORS_ORIGINS in backend includes frontend URL
+- Check Railway backend is running (look for green status)
 
-# Common issues:
-# - Database connection (check DATABASE_URL)
-# - Port already in use (check with: sudo lsof -i :8000)
-# - Missing dependencies (pip install -r requirements.txt)
-```
+### Database tables missing
+- Run init_db.py and migrate_add_moderation.py
+- Check Railway logs for migration errors
 
-### Frontend won't start
+### Stripe payments fail
+- Verify you're using test keys (sk_test_ and pk_test_)
+- Check backend logs for errors
+- Ensure Stripe publishable key matches secret key
 
-```bash
-# Check logs
-sudo journalctl -u word-registry-frontend -n 50
+---
 
-# Common issues:
-# - Build failed (run: npm run build)
-# - Port already in use (check with: sudo lsof -i :3000)
-# - Missing .env.local file
-```
+## Costs
 
-### Nginx errors
+**Current Setup (Free Tier)**:
+- Vercel: Free (100GB bandwidth, 100 builds/month)
+- Railway: Free tier available ($5 credit/month, ~500 hours runtime)
+- PostgreSQL: Included in Railway free tier (limited storage)
 
-```bash
-# Test configuration
-sudo nginx -t
+**If you exceed free tier**:
+- Railway: ~$5-10/month for backend + database
+- Vercel: Hobby plan $20/month (if needed)
 
-# Check error logs
-sudo tail -f /var/log/nginx/error.log
+---
 
-# Common issues:
-# - Syntax errors in config
-# - Port conflicts
-# - SSL certificate issues
-```
+## Next Steps After Deployment
 
-### Database connection issues
+1. Test all functionality on production URLs
+2. Add Terms/Privacy pages if needed for Stripe
+3. Submit to Stripe for review with production URL
+4. Monitor Railway and Vercel dashboards for errors
+5. Set up custom domain (optional)
 
-```bash
-# Check PostgreSQL is running
-sudo systemctl status postgresql
-
-# Test connection
-psql -U wordregistry_user -d word_registry -h localhost
-
-# Check pg_hba.conf allows local connections
-```
-
-## Scaling Considerations
-
-### Add Redis (Optional but Recommended)
-
-```bash
-# Install Redis
-sudo apt install redis-server -y
-
-# Configure Redis
-sudo nano /etc/redis/redis.conf
-# Set: supervised systemd
-
-# Restart Redis
-sudo systemctl restart redis
-
-# Update backend .env
-REDIS_URL=redis://localhost:6379
-
-# Restart backend
-sudo systemctl restart word-registry-backend
-```
-
-### Increase Workers
-
-For better performance, increase uvicorn workers:
-
-```bash
-sudo nano /etc/systemd/system/word-registry-backend.service
-
-# Change:
-ExecStart=/var/www/word-registry/backend/venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 4
-
-# Reload and restart
-sudo systemctl daemon-reload
-sudo systemctl restart word-registry-backend
-```
-
-## Cost Estimate
-
-**Monthly costs:**
-- DigitalOcean Droplet: $12-24/month
-- Domain: ~$12/year
-- SSL: Free (Let's Encrypt)
-- Stripe fees: 2.9% + $0.30 per transaction
-
-**Total:** ~$13-25/month + transaction fees
+---
 
 ## Support
 
-For issues:
-- DigitalOcean Docs: https://docs.digitalocean.com
-- Stripe Docs: https://stripe.com/docs
-- Project Issues: https://github.com/yourusername/word-registry/issues
+- Railway Docs: https://docs.railway.app
+- Vercel Docs: https://vercel.com/docs
+- Report issues: Create an issue in the GitHub repo
