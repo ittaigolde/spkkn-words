@@ -72,8 +72,22 @@ async def root():
 
 @app.get("/health")
 async def health_check():
-    """Detailed health check."""
+    """Detailed health check with version info."""
+    import os
+
+    # Try to read git commit from environment or version file
+    git_commit = os.environ.get("GIT_COMMIT", "unknown")
+
+    # Try to read from version file if it exists
+    try:
+        with open("/app/version.txt", "r") as f:
+            git_commit = f.read().strip()
+    except FileNotFoundError:
+        pass
+
     return {
         "status": "healthy",
-        "environment": settings.app_env
+        "environment": settings.app_env,
+        "git_commit": git_commit,
+        "version": "1.0.0"
     }
