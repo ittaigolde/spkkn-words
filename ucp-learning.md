@@ -121,3 +121,49 @@ After Google Merchant Center setup is complete, we'll integrate with ucp.dev to 
 - Need to decide on product feed format (likely JSON via API for dynamic pricing)
 - May need to generate product images for each word
 
+
+---
+
+**2026-01-29 - Product Feed API Created:**
+
+Built product feed infrastructure with two endpoints:
+
+**1. JSON Feed Endpoint:**
+- URL: `https://spkkn.com/api/product-feed/google-merchant`
+- Format: JSON (Google Merchant Center Content API compatible)
+- Returns all 20,000 words with:
+  - Unique ID
+  - Title: "Word: {WORD}"
+  - Description with ownership info
+  - Link to product page
+  - Image link (placeholder for now)
+  - Current price in USD
+  - Availability (in_stock/out_of_stock based on lockout)
+  - Condition: new
+  - Brand: The Word Registry
+  - Custom labels for filtering (available/locked, owned/unclaimed, price tier)
+
+**2. XML/RSS Feed Endpoint:**
+- URL: `https://spkkn.com/api/product-feed/google-merchant/rss`
+- Format: RSS/XML
+- Alternative format for XML-based feeds
+- Same data as JSON endpoint
+
+**3. Word Image Endpoint:**
+- URL: `https://spkkn.com/api/product-feed/word-image/{word}`
+- Currently redirects to placeholder
+- TODO: Generate actual word card images dynamically
+
+**Key Features:**
+- Dynamic pricing: Feed shows current price for each word
+- Dynamic availability: Automatically marks locked words as out_of_stock
+- Owner information: Shows if word is owned or unclaimed
+- Filtering labels: Price tiers, availability status, ownership status
+- Testing support: `?limit=N` parameter to test with subset of products
+
+**Next Steps:**
+1. Deploy and test the feed endpoints
+2. Verify feed in Google Merchant Center
+3. (Optional) Generate custom word card images
+4. Set up automatic feed updates/refresh
+
