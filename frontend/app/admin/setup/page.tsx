@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { getSetupInfo, SetupInfo } from "@/lib/adminApi";
 
 export default function AdminSetupPage() {
@@ -179,7 +180,7 @@ export default function AdminSetupPage() {
                     2
                   </span>
                   <span className="ml-3 text-gray-700">
-                    Open the app and tap <strong>"Scan QR code"</strong> or <strong>"Add account"</strong>
+                    Open the app and tap <strong>&quot;Scan QR code&quot;</strong> or <strong>&quot;Add account&quot;</strong>
                   </span>
                 </li>
                 <li className="flex items-start">
@@ -223,10 +224,10 @@ export default function AdminSetupPage() {
             {/* Manual Entry Section */}
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                Can't scan? Manual entry
+                Can&apos;t scan? Manual entry
               </h3>
               <p className="text-sm text-gray-600 mb-3">
-                If you can't scan the QR code, enter this secret key manually in your authenticator app:
+                If you can&apos;t scan the QR code, enter this secret key manually in your authenticator app:
               </p>
               <div className="flex items-center gap-2">
                 <code className="flex-1 bg-white px-4 py-3 rounded border border-blue-300 font-mono text-sm break-all">
@@ -292,12 +293,12 @@ export default function AdminSetupPage() {
               >
                 Go to Login
               </a>
-              <a
+              <Link
                 href="/"
                 className="flex-1 py-3 border border-gray-300 text-gray-700 text-center font-semibold rounded-lg hover:bg-gray-50 transition-colors"
               >
                 Back to Home
-              </a>
+              </Link>
             </div>
 
             {/* Security Reminder */}
