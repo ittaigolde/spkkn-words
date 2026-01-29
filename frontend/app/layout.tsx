@@ -25,6 +25,21 @@ export default function RootLayout({
         <main>{children}</main>
         <footer className="bg-white border-t border-gray-200 mt-12">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div className="text-center mb-4">
+              <a
+                href="/refund-policy"
+                className="text-sm text-indigo-600 hover:text-indigo-700 font-medium"
+              >
+                Refund Policy
+              </a>
+              {" • "}
+              <a
+                href="mailto:team@spkkn.com"
+                className="text-sm text-indigo-600 hover:text-indigo-700 font-medium"
+              >
+                Contact Us
+              </a>
+            </div>
             <p className="text-xs text-gray-500 text-center">
               Ownership is a digital novelty service for entertainment purposes only.
               Purchase does not convey legal trademark rights, copyright, or exclusivity

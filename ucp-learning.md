@@ -234,3 +234,40 @@ Each product includes:
 5. Monitor feed for errors in Google Merchant Center dashboard
 6. Integrate with ucp.dev for AI agent checkout
 
+
+---
+
+**2026-01-29 - Google Merchant Center Setup - Refund Policy:**
+
+**Created Refund Policy Page:**
+- URL: `https://spkkn.com/refund-policy`
+- Clear "no refunds" policy for digital products
+- Explains temporary ownership nature
+- Contact email: team@spkkn.com
+- Added to footer for easy access
+
+**Key Policy Points:**
+- All sales are final (instant digital delivery)
+- Word ownership is temporary by design
+- Technical errors will be investigated and resolved
+- Disputes handled via team@spkkn.com
+- 48-hour response time commitment
+
+**Policy covers:**
+- No refunds/returns explanation
+- Temporary ownership clarification
+- Payment processing errors
+- Dispute resolution process
+- Unauthorized charge procedures
+- Understanding before purchase checklist
+
+**Footer Links Added:**
+- Refund Policy link
+- Contact Us (team@spkkn.com) link
+
+**Google Merchant Center Requirements:**
+- ✅ Domain verification completed
+- ✅ Product feed URL provided
+- ✅ Refund policy page created and accessible
+- ⏳ Waiting for feed processing
+
