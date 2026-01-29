@@ -78,6 +78,7 @@ async def create_payment_intent(
         statement_descriptor = f"WORD* {word_upper}"
 
         # Create PaymentIntent
+        print(f"DEBUG: stripe.api_key starts with: {stripe.api_key[:10] if stripe.api_key else 'NOT SET'}...")
         payment_intent = stripe.PaymentIntent.create(
             amount=amount,
             currency="usd",
