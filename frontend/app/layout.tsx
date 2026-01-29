@@ -7,6 +7,9 @@ import DemoBanner from "@/components/DemoBanner";
 export const metadata: Metadata = {
   title: "The Word Registry",
   description: "A competitive marketplace for exclusive, temporary ownership of English words",
+  verification: {
+    google: "RB2VSbI5S7j_TN6Gz5gGjJGDgSEJk3DiDy32ep26TKc",
+  },
 };
 
 export default function RootLayout({
